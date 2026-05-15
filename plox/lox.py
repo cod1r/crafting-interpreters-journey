@@ -1,0 +1,38 @@
+#! /usr/bin/env python3
+import sys
+import scanner
+
+had_error = False
+
+def error(line, message):
+  had_error = True
+  report(line, "", message)
+
+def report(line, where, message):
+  print(line, where, message)
+
+def run(file_content):
+  scanner_ = scanner.Scanner(file_content)
+  tokens = scanner_.scan_tokens()
+  for token in tokens:
+    print(token.to_string())
+
+def run_file(file_name):
+  with open(file_name, "r+") as f:
+    s = f.read()
+  run(s)
+  if had_error: exit(65)
+
+def run_repl():
+  while line := input():
+    run(line)
+  had_error = false
+
+if __name__ == "__main__":
+  if len(sys.argv) == 2:
+    run_file(sys.argv[1])
+  elif len(sys.argv) > 2:
+    print("Usage: plox [script]")
+    exit(64)
+  elif len(sys.argv) == 1:
+    run_repl()
