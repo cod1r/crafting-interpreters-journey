@@ -108,7 +108,7 @@ class Scanner:
       while not self.is_at_end() and self.peek().isdigit():
         self.advance()
     literal = self.src[self.start : self.current]
-    self.add_token(TokenType.NUMBER, literal)
+    self.add_token(TokenType.NUMBER, float(literal))
 
   def find_keyword(self, s):
     keywords = [
