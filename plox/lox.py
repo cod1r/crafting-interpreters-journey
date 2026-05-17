@@ -3,8 +3,16 @@ import sys
 import scanner
 import parser
 import ast_printer
+import interpreter
+
+interpreter_ = interpreter.Interpreter()
 
 had_error = False
+had_runtime_error = False
+
+def runtime_error(error, message):
+  had_runtime_error = True
+  print(error.message, f"Line: {error.token.line}")
 
 def error(line, message):
   had_error = True
@@ -26,13 +34,14 @@ def run(file_content):
   parser_ = parser.Parser(tokens)
   expr = parser_.parse()
   if had_error: return
-  print(ast_printer.Ast_Printer().print(expr))
+  interpreter_.interpret(expr)
 
 def run_file(file_name):
   with open(file_name, "r+") as f:
     s = f.read()
   run(s)
   if had_error: exit(65)
+  if had_runtime_error: exit(70)
 
 def run_repl():
   while line := input():

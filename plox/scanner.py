@@ -51,7 +51,7 @@ class Scanner:
       case '>':
           self.add_token(TokenType.GREATER_EQUAL if self.match('=') else TokenType.GREATER)
       case '/':
-        if match('/'):
+        if self.match('/'):
           while self.peek() != '\n' and not self.is_at_end():
             self.advance()
         else:
