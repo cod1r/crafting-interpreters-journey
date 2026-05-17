@@ -1,6 +1,8 @@
 #! /usr/bin/env python3
 import sys
 import scanner
+import parser
+import ast_printer
 
 had_error = False
 
@@ -11,11 +13,20 @@ def error(line, message):
 def report(line, where, message):
   print(line, where, message)
 
+def error_with_token(token, message):
+  had_error = True
+  if token.type == TokenType.EOF:
+    report(token.line, " at end", message)
+  else:
+    report(token.line, " at '" + token.lexeme + "'", message)
+
 def run(file_content):
   scanner_ = scanner.Scanner(file_content)
   tokens = scanner_.scan_tokens()
-  for token in tokens:
-    print(token.to_string())
+  parser_ = parser.Parser(tokens)
+  expr = parser_.parse()
+  if had_error: return
+  print(ast_printer.Ast_Printer().print(expr))
 
 def run_file(file_name):
   with open(file_name, "r+") as f:

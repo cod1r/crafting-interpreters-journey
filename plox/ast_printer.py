@@ -23,13 +23,3 @@ class Ast_Printer(Visitor):
       s += " " + expr.accept(self)
     s += ")"
     return s
-
-expr = Binary(
-          Unary(Token(TokenType.MINUS, "-", None, 1), Literal(Token(TokenType.NUMBER, "123", 123, 1))),
-          Token(TokenType.STAR, "*", None, 1),
-          Grouping(
-            Literal(Token(TokenType.NUMBER, "45.67", 45.67, 1))
-          )
-        )
-
-print(Ast_Printer().print(expr))
