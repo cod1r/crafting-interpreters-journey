@@ -1,4 +1,5 @@
-from syntax_types import Binary, Unary, Literal, Grouping
+from expression_syntax_types import Binary, Unary, Literal, Grouping, Variable, Assignment
+from statement_syntax_types import PrintStmt, ExprStmt, Var, Block
 from lox_tokens import TokenType
 import lox
 class Parser:
@@ -7,13 +8,78 @@ class Parser:
     self.current = 0
 
   def parse(self):
+    stmts = []
     try:
-      return self.expression()
-    except RuntimeError:
+      while not self.is_at_end():
+        stmt = self.declaration()
+        stmts.append(stmt)
+      return stmts
+    except RuntimeError as parse_error:
+      self.synchronize()
       return None
 
+  def declaration(self):
+    if self.match(TokenType.VAR):
+      return self.var_decl()
+    return self.statement()
+
+  def var_decl(self):
+    var_token = None
+    initializer = None
+    if self.match(TokenType.IDENTIFIER):
+      var_token = self.previous()
+    else:
+      lox.error(self.peek(), "expected identifier")
+      raise RuntimeError("expected identifier")
+    if self.match(TokenType.EQUAL):
+      initializer = self.expression()
+    if self.match(TokenType.SEMICOLON):
+      return Var(var_token, initializer)
+    lox.error(self.peek(), "expected ';' or assignment")
+    raise RuntimeError("expected ';' or assignment")
+
+  def statement(self):
+    if self.match(TokenType.PRINT):
+      return self.print_statement()
+    if self.match(TokenType.LEFT_BRACE):
+      return self.block()
+    return self.expr_statement()
+
+  def block(self):
+    statements = []
+    while not self.is_at_end() and not self.peek().type == TokenType.RIGHT_BRACE:
+      statements.append(self.declaration())
+    if self.match(TokenType.RIGHT_BRACE):
+      return Block(statements)
+    lox.error(self.previous().type, "Expected '}'")
+    raise RuntimeError("Expected '}'")
+
+  def expr_statement(self):
+    expr = self.expression()
+    if self.match(TokenType.SEMICOLON):
+      return ExprStmt(expr)
+    lox.error(self.peek(), "Expected ';'")
+    raise RuntimeError("Expected ';'")
+
+  def print_statement(self):
+    expr = self.expression()
+    if self.match(TokenType.SEMICOLON):
+      return PrintStmt(expr)
+    lox.error(self.peek(), "Expected ';'")
+    raise RuntimeError("Expected ';'")
+
   def expression(self):
-    return self.equality()
+    return self.assignment()
+
+  def assignment(self):
+    expr = self.equality()
+    if self.match(TokenType.EQUAL):
+      eq = self.previous()
+      value = self.assignment()
+      if isinstance(expr, Variable):
+        return Assignment(expr.name, value)
+      lox.error(eq, "Invalid assignment")
+    return expr
 
   def equality(self):
     expr = self.comparison()
@@ -65,6 +131,8 @@ class Parser:
       else:
         lox.error_with_token(self.previous(), "Expected ')'")
         raise RuntimeError("parse error")
+    if self.match(TokenType.IDENTIFIER):
+      return Variable(self.previous())
     lox.error_with_token(self.previous(), "Expected '(' or NUMBER,STRING,TRUE,FALSE,NIL")
     raise RuntimeError("parse error")
 
@@ -91,7 +159,7 @@ class Parser:
   def synchronize(self):
     self.advance()
     while not self.is_at_end():
-      if self.peek().type == TokenType.SEMI_COLON: return
+      if self.peek().type == TokenType.SEMICOLON: return
       match self.peek().type:
         case TokenType.CLASS | TokenType.FUN | TokenType.VAR | TokenType.FOR | TokenType.IF | TokenType.WHILE | TokenType.PRINT | TokenType.RETURN:
           return

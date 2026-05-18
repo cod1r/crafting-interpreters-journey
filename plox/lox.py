@@ -4,13 +4,14 @@ import scanner
 import parser
 import ast_printer
 import interpreter
+from lox_tokens import TokenType
 
 interpreter_ = interpreter.Interpreter()
 
 had_error = False
 had_runtime_error = False
 
-def runtime_error(error, message):
+def runtime_error(error):
   had_runtime_error = True
   print(error.message, f"Line: {error.token.line}")
 
@@ -26,15 +27,15 @@ def error_with_token(token, message):
   if token.type == TokenType.EOF:
     report(token.line, " at end", message)
   else:
-    report(token.line, " at '" + token.lexeme + "'", message)
+    report(token.line, "at '" + token.lexeme + "'", message)
 
 def run(file_content):
   scanner_ = scanner.Scanner(file_content)
   tokens = scanner_.scan_tokens()
   parser_ = parser.Parser(tokens)
-  expr = parser_.parse()
+  stmts = parser_.parse()
   if had_error: return
-  interpreter_.interpret(expr)
+  interpreter_.interpret(stmts)
 
 def run_file(file_name):
   with open(file_name, "r+") as f:

@@ -1,5 +1,5 @@
 from lox_tokens import Token, TokenType
-from syntax_types import Visitor, Binary, Unary, Literal, Grouping, Expression
+from expression_syntax_types import Visitor, Binary, Unary, Literal, Grouping
 
 class Ast_Printer(Visitor):
   def print(self, expr):
