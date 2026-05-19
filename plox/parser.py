@@ -1,6 +1,6 @@
 from expression_syntax_types import Binary, Unary, Literal, Grouping, Variable, Assignment, Logical
 from statement_syntax_types import PrintStmt, ExprStmt, Var, Block, IfStmt, WhileStmt
-from lox_tokens import TokenType
+from lox_tokens import TokenType, Token
 import lox
 class Parser:
   def __init__(self, tokens):
@@ -70,7 +70,7 @@ class Parser:
       elif not self.match(TokenType.SEMICOLON):
         init_stmt = self.expr_statement()
       condition = None
-      if not self.match(TokenType.SEMICOLON):
+      if not self.peek().type == TokenType.SEMICOLON:
         condition = self.expression()
       increment = None
       if self.match(TokenType.SEMICOLON):
