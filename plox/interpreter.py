@@ -1,4 +1,4 @@
-from expression_syntax_types import Visitor, Unary, Binary, Literal, Grouping
+from expression_syntax_types import Visitor
 import statement_syntax_types
 import environment
 from lox_tokens import TokenType
@@ -108,3 +108,28 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
         stmt.accept(self)
       finally:
         self.environment = prev
+
+  def visit_IfStmt(self, if_stmt):
+    condition_result = if_stmt.condition.accept(self)
+    if not condition_result and if_stmt.else_ is not None:
+      return if_stmt.else_.accept(self)
+    return if_stmt.then.accept(self)
+
+  def visit_Logical(self, logical):
+    match logical.op.type:
+      case TokenType.OR:
+        left_result = logical.left_expr.accept(self)
+        if left_result: return left_result
+        right_result = logical.right_expr.accept(self)
+        return right_result
+      case TokenType.AND:
+        left_result = logical.left_expr.accept(self)
+        if not left_result: return left_result
+        right_result = logical.right_expr.accept(self)
+        return left_result and right_result
+      case _:
+        raise LoxRuntimeError(logical.op, "Unhandled logical op")
+
+  def visit_WhileStmt(self, while_stmt):
+    while while_stmt.condition.accept(self):
+      while_stmt.body.accept(self)

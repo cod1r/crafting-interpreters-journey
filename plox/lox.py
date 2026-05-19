@@ -20,7 +20,7 @@ def error(line, message):
   report(line, "", message)
 
 def report(line, where, message):
-  print(line, where, message)
+  print('line', line, where, message)
 
 def error_with_token(token, message):
   had_error = True
