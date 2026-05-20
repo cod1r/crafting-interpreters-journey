@@ -34,6 +34,7 @@ def generate_ast_classes():
     ["Grouping", ["expr"]],
     ["Variable", ["name"]],
     ["Logical", ["left_expr", "op", "right_expr"]],
+    ["Call", ["callee", "closing_paren", "arguments"]]
   ]
   formatted_for_expression = get_formatted_string("Expression", expression_types)
   with open(f"expression_syntax_types.py", "w+") as f:
@@ -47,6 +48,7 @@ def generate_ast_classes():
     ["Block", ["lst_statements"]],
     ["IfStmt", ["condition", "then", "else_"]],
     ["WhileStmt", ["condition", "body"]],
+    ["Function", ["name", "parameters", "body"]]
   ]
   formatted_for_statement = get_formatted_string("Statement", statement_types)
   with open(f"statement_syntax_types.py", "w+") as f:

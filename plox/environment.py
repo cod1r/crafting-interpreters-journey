@@ -9,7 +9,7 @@ class Environment:
 
   def get(self, name_to_find):
     for name, value in self.values:
-      if name == name_to_find:
+      if name == name_to_find.lexeme:
         return value
     if self.enclosing is not None: return self.enclosing.get(name_to_find)
     raise LoxRuntimeError(name_to_find, f"Undefined variable {name_to_find.lexeme}")
@@ -20,4 +20,4 @@ class Environment:
         self.values[idx] = (name, new_val)
         return
     if self.enclosing is not None: return self.enclosing.assign(name_var, new_val)
-    raise LoxRuntimeError(name, f"Undefiend variable {name.lexeme}")
+    raise LoxRuntimeError(name, f"Undefined variable {name.lexeme}")

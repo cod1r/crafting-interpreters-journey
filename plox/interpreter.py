@@ -3,10 +3,21 @@ import statement_syntax_types
 import environment
 from lox_tokens import TokenType
 import lox
+from lox_callable import LoxCallable, LoxFunction
 from runtime_error import LoxRuntimeError
+import time
+class NativeClockCall(LoxCallable):
+  def __init__(self):
+    super().__init__(0)
+
+  def call(self, interpreter, args):
+    return time.time()
+
 class Interpreter(Visitor, statement_syntax_types.Visitor):
   def __init__(self):
     self.environment = environment.Environment()
+    self.globals = self.environment
+    self.globals.define("clock", NativeClockCall)
 
   def interpret(self, statements):
     try:
@@ -76,7 +87,7 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
       case _: raise LoxRuntimeError(binary.op, f"unhandled unary op: {unary.op.type.name}")
 
   def visit_Variable(self, variable_expr):
-    return self.environment.get(variable_expr.name.lexeme)
+    return self.environment.get(variable_expr.name)
 
   def visit_Grouping(self, grouping):
     return grouping.expr.accept(self)
@@ -133,3 +144,13 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
   def visit_WhileStmt(self, while_stmt):
     while while_stmt.condition.accept(self):
       while_stmt.body.accept(self)
+
+  def visit_Call(self, call):
+    callee = call.callee.accept(self)
+    if not isinstance(callee, LoxCallable):
+      raise LoxRuntimeError(call.closing_paren, "Can only call functions and classes")
+    args_interpreted = [arg.accept(self) for arg in call.arguments]
+    return callee.call(self, args_interpreted)
+
+  def visit_Function(self, function):
+    self.environment.define(function.name.lexeme, LoxFunction(function))

@@ -13,7 +13,7 @@ had_runtime_error = False
 
 def runtime_error(error):
   had_runtime_error = True
-  print(error.message, f"Line: {error.token.line}")
+  print(error.message, f"Line: {error.token.line} at {error.token.lexeme}")
 
 def error(line, message):
   had_error = True
@@ -25,9 +25,10 @@ def report(line, where, message):
 def error_with_token(token, message):
   had_error = True
   if token.type == TokenType.EOF:
-    report(token.line, " at end", message)
-  else:
-    report(token.line, "at '" + token.lexeme + "'", message)
+    report(token.line, "", "at end " + message)
+    return RuntimeError(f"{token.line} at end {message}")
+  report(token.line, token.lexeme, message)
+  return RuntimeError(f"{token.line} at '{token.lexeme} {message})")
 
 def run(file_content):
   scanner_ = scanner.Scanner(file_content)
@@ -35,7 +36,7 @@ def run(file_content):
   parser_ = parser.Parser(tokens)
   stmts = parser_.parse()
   if had_error: return
-  interpreter_.interpret(stmts)
+  if stmts is not None: interpreter_.interpret(stmts)
 
 def run_file(file_name):
   with open(file_name, "r+") as f:
