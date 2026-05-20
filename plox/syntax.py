@@ -48,7 +48,8 @@ def generate_ast_classes():
     ["Block", ["lst_statements"]],
     ["IfStmt", ["condition", "then", "else_"]],
     ["WhileStmt", ["condition", "body"]],
-    ["Function", ["name", "parameters", "body"]]
+    ["Function", ["name", "parameters", "body"]],
+    ["ReturnStmt", ["return_token", "value"]]
   ]
   formatted_for_statement = get_formatted_string("Statement", statement_types)
   with open(f"statement_syntax_types.py", "w+") as f:

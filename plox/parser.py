@@ -1,5 +1,5 @@
 from expression_syntax_types import Binary, Unary, Literal, Grouping, Variable, Assignment, Logical, Call
-from statement_syntax_types import PrintStmt, ExprStmt, Var, Block, IfStmt, WhileStmt, Function
+from statement_syntax_types import PrintStmt, ExprStmt, Var, Block, IfStmt, WhileStmt, Function, ReturnStmt
 from lox_tokens import TokenType, Token
 import lox
 class Parser:
@@ -36,6 +36,15 @@ class Parser:
         raise lox.error_with_token(self.peek(), "Expected '{' for function body")
       raise lox.error_with_token(self.peek(), f"Expected '(' after {kind} name")
     raise lox.error_with_token(self.peek(), f"Expected {kind} name.")
+
+  def return_stmt(self):
+    token = self.previous()
+    expr = None
+    if self.peek().type != TokenType.SEMICOLON:
+      expr = self.expression()
+    if self.match(TokenType.SEMICOLON):
+      return ReturnStmt(token, expr)
+    raise lox.error_with_token(self.peek(), "Expected ';' after return")
 
   def parameters(self):
     parameters = []
@@ -76,6 +85,8 @@ class Parser:
       return self.while_stmt()
     if self.match(TokenType.FOR):
       return self.for_stmt()
+    if self.match(TokenType.RETURN):
+      return self.return_stmt()
     return self.expr_statement()
 
   def while_stmt(self):

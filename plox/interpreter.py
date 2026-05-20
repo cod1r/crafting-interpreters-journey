@@ -18,6 +18,7 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
     self.environment = environment.Environment()
     self.globals = self.environment
     self.globals.define("clock", NativeClockCall)
+    self.return_value = None
 
   def interpret(self, statements):
     try:
@@ -117,6 +118,8 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
       self.environment = new_env
       try:
         stmt.accept(self)
+        if self.return_value is not None:
+          return self.return_value
       finally:
         self.environment = prev
 
@@ -124,7 +127,7 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
     condition_result = if_stmt.condition.accept(self)
     if not condition_result and if_stmt.else_ is not None:
       return if_stmt.else_.accept(self)
-    return if_stmt.then.accept(self)
+    if condition_result: if_stmt.then.accept(self)
 
   def visit_Logical(self, logical):
     match logical.op.type:
@@ -153,4 +156,7 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
     return callee.call(self, args_interpreted)
 
   def visit_Function(self, function):
-    self.environment.define(function.name.lexeme, LoxFunction(function))
+    self.environment.define(function.name.lexeme, LoxFunction(function, self.environment))
+
+  def visit_ReturnStmt(self, return_stmt):
+    self.return_value = return_stmt.value.accept(self) if return_stmt.value is not None else None
