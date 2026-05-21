@@ -3,9 +3,10 @@ from statement_syntax_types import PrintStmt, ExprStmt, Var, Block, IfStmt, Whil
 from lox_tokens import TokenType, Token
 import lox
 class Parser:
-  def __init__(self, tokens):
+  def __init__(self, tokens, lox):
     self.tokens = tokens
     self.current = 0
+    self.lox = lox
 
   def parse(self):
     stmts = []
@@ -33,9 +34,9 @@ class Parser:
         if self.match(TokenType.LEFT_BRACE):
           body = self.block()
           return Function(name, parameters, body)
-        raise lox.error_with_token(self.peek(), "Expected '{' for function body")
-      raise lox.error_with_token(self.peek(), f"Expected '(' after {kind} name")
-    raise lox.error_with_token(self.peek(), f"Expected {kind} name.")
+        raise self.lox.error_with_token(self.peek(), "Expected '{' for function body")
+      raise self.lox.error_with_token(self.peek(), f"Expected '(' after {kind} name")
+    raise self.lox.error_with_token(self.peek(), f"Expected {kind} name.")
 
   def return_stmt(self):
     token = self.previous()
@@ -44,7 +45,7 @@ class Parser:
       expr = self.expression()
     if self.match(TokenType.SEMICOLON):
       return ReturnStmt(token, expr)
-    raise lox.error_with_token(self.peek(), "Expected ';' after return")
+    raise self.lox.error_with_token(self.peek(), "Expected ';' after return")
 
   def parameters(self):
     parameters = []
@@ -54,12 +55,12 @@ class Parser:
       if self.match(TokenType.IDENTIFIER):
         parameters.append(self.previous())
         if len(parameters) >= 255:
-          lox.error_with_token(self.peek(), "cannot have 255+ parameters")
+          self.lox.error_with_token(self.peek(), "cannot have 255+ parameters")
       else:
-        raise lox.error_with_token(self.peek(), "Expected parameter name")
+        raise self.lox.error_with_token(self.peek(), "Expected parameter name")
     if self.match(TokenType.RIGHT_PAREN):
       return parameters
-    raise lox.error_with_token(self.peek(), "Expected ')'")
+    raise self.lox.error_with_token(self.peek(), "Expected ')'")
 
   def var_decl(self):
     var_token = None
@@ -67,12 +68,12 @@ class Parser:
     if self.match(TokenType.IDENTIFIER):
       var_token = self.previous()
     else:
-      raise lox.error_with_token(self.peek(), "expected identifier")
+      raise self.lox.error_with_token(self.peek(), "expected identifier")
     if self.match(TokenType.EQUAL):
       initializer = self.expression()
     if self.match(TokenType.SEMICOLON):
       return Var(var_token, initializer)
-    raise lox.error_with_token(self.previous(), "expected ';' or assignment")
+    raise self.lox.error_with_token(self.previous(), "expected ';' or assignment")
 
   def statement(self):
     if self.match(TokenType.PRINT):
@@ -95,8 +96,8 @@ class Parser:
       if self.match(TokenType.RIGHT_PAREN):
         body = self.statement()
         return WhileStmt(condition, body)
-      raise lox.error_with_token(self.peek(), "Expected ')'")
-    raise lox.error_with_token(self.peek(), "Expected '('")
+      raise self.lox.error_with_token(self.peek(), "Expected ')'")
+    raise self.lox.error_with_token(self.peek(), "Expected '('")
 
   def for_stmt(self):
     if self.match(TokenType.LEFT_PAREN):
@@ -125,9 +126,9 @@ class Parser:
             )
           )
           return Block(statements)
-        raise lox.error_with_token(self.peek(), "Expected ')'")
-      raise lox.error_with_token(self.peek(), "Expected ';'")
-    raise lox.error_with_token(self.peek(), "Expected '('")
+        raise self.lox.error_with_token(self.peek(), "Expected ')'")
+      raise self.lox.error_with_token(self.peek(), "Expected ';'")
+    raise self.lox.error_with_token(self.peek(), "Expected '('")
 
   def if_stmt(self):
     if self.match(TokenType.LEFT_PAREN):
@@ -139,8 +140,8 @@ class Parser:
           else_ = self.statement()
         return IfStmt(condition, then, else_)
       else:
-        raise lox.error_with_token(self.peek(), "Expected ')'")
-    raise lox.error_with_token(self.peek(), "Expected 'if'")
+        raise self.lox.error_with_token(self.peek(), "Expected ')'")
+    raise self.lox.error_with_token(self.peek(), "Expected 'if'")
 
   def block(self):
     statements = []
@@ -148,19 +149,19 @@ class Parser:
       statements.append(self.declaration())
     if self.match(TokenType.RIGHT_BRACE):
       return Block(statements)
-    raise lox.error_with_token(self.previous(), "Expected '}'")
+    raise self.lox.error_with_token(self.previous(), "Expected '}'")
 
   def expr_statement(self):
     expr = self.expression()
     if self.match(TokenType.SEMICOLON):
       return ExprStmt(expr)
-    raise lox.error_with_token(self.peek(), "Expected ';'")
+    raise self.lox.error_with_token(self.peek(), "Expected ';'")
 
   def print_statement(self):
     expr = self.expression()
     if self.match(TokenType.SEMICOLON):
       return PrintStmt(expr)
-    raise lox.error_with_token(self.peek(), "Expected ';'")
+    raise self.lox.error_with_token(self.peek(), "Expected ';'")
 
   def expression(self):
     return self.assignment()
@@ -172,7 +173,7 @@ class Parser:
       value = self.assignment()
       if isinstance(expr, Variable):
         return Assignment(expr.name, value)
-      lox.error_with_token(eq, "Invalid assignment")
+      self.lox.error_with_token(eq, "Invalid assignment")
     return expr
 
   def or_expr(self):
@@ -237,7 +238,7 @@ class Parser:
       if self.match(TokenType.RIGHT_PAREN):
         expr = Call(expr, self.previous(), args)
       else:
-        raise lox.error_with_token(self.peek(), "Expected ')'")
+        raise self.lox.error_with_token(self.peek(), "Expected ')'")
     return expr
 
   def arguments(self):
@@ -247,7 +248,7 @@ class Parser:
     while self.match(TokenType.COMMA):
       lst.append(self.expression())
       if len(lst) >= 255:
-        lox.error_with_token(self.peek(), "CANNOT HAVE 255+ arguments to a function")
+        self.lox.error_with_token(self.peek(), "CANNOT HAVE 255+ arguments to a function")
     return lst
 
   def primary(self):
@@ -259,10 +260,10 @@ class Parser:
         expr = Grouping(expr)
         return expr
       else:
-        raise lox.error_with_token(self.previous(), "Expected ')'")
+        raise self.lox.error_with_token(self.previous(), "Expected ')'")
     if self.match(TokenType.IDENTIFIER):
       return Variable(self.previous())
-    raise lox.error_with_token(self.peek(), "Expected '(' or NUMBER,STRING,TRUE,FALSE,NIL")
+    raise self.lox.error_with_token(self.peek(), "Expected '(' or NUMBER,STRING,TRUE,FALSE,NIL")
 
   def match(self, *args):
     if self.is_at_end(): return False

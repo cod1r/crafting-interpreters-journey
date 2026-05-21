@@ -2,12 +2,13 @@ from lox_tokens import TokenType, Token
 import lox
 
 class Scanner:
-  def __init__(self, src):
+  def __init__(self, src, lox):
     self.src = src
     self.tokens = []
     self.current = 0
     self.start = 0
     self.line = 1
+    self.lox = lox
 
   def scan_tokens(self):
     while not self.is_at_end():
@@ -68,7 +69,7 @@ class Scanner:
         elif char.isalnum():
           self.identifier()
         else:
-          lox.error(self.line, f"Unexpected character {char}")
+          self.lox.error(self.line, f"Unexpected character {char}")
 
   def add_token(self, tokentype, literal=None):
     text = self.src[self.start : self.current]
@@ -94,7 +95,7 @@ class Scanner:
       if self.peek() == '\n': self.line += 1
       self.advance()
     if self.is_at_end():
-      lox.error("Unterminated string")
+      self.lox.error(self.line, "Unterminated string")
       return
     self.advance()
     literal = self.src[self.start + 1 : self.current - 1]

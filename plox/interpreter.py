@@ -2,7 +2,6 @@ from expression_syntax_types import Visitor
 import statement_syntax_types
 import environment
 from lox_tokens import TokenType
-import lox
 from lox_callable import LoxCallable, LoxFunction
 from runtime_error import LoxRuntimeError
 import time
@@ -14,18 +13,20 @@ class NativeClockCall(LoxCallable):
     return time.time()
 
 class Interpreter(Visitor, statement_syntax_types.Visitor):
-  def __init__(self):
+  def __init__(self, lox):
     self.environment = environment.Environment()
     self.globals = self.environment
     self.globals.define("clock", NativeClockCall)
     self.return_value = None
+    self.locals = {}
+    self.lox = lox
 
   def interpret(self, statements):
     try:
       for stmt in statements:
         stmt.accept(self)
     except LoxRuntimeError as error:
-      lox.runtime_error(error)
+      self.lox.runtime_error(error)
 
   def both_numbers(self, a, b): return isinstance(a, float) and isinstance(b, float)
 
@@ -88,14 +89,18 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
       case _: raise LoxRuntimeError(binary.op, f"unhandled unary op: {unary.op.type.name}")
 
   def visit_Variable(self, variable_expr):
-    return self.environment.get(variable_expr.name)
+    return self.lookup_variable(variable_expr)
 
   def visit_Grouping(self, grouping):
     return grouping.expr.accept(self)
 
   def visit_Assignment(self, assignment):
     new_val = assignment.value.accept(self)
-    self.environment.assign(assignment.name.lexeme, new_val)
+    if assignment.name.lexeme not in self.locals:
+      self.globals.assign(assignment.name, new_val)
+    else:
+      dist = self.locals[assignment.name.lexeme]
+      self.environment.assign_at(dist, assignment.name.lexeme, new_val)
     return new_val
 
   def visit_ExprStmt(self, expr_stmt):
@@ -122,6 +127,14 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
           return self.return_value
       finally:
         self.environment = prev
+
+  def resolve(self, var, depth):
+    self.locals[var.name.lexeme] = depth
+
+  def lookup_variable(self, var):
+    if var.name.lexeme not in self.locals:
+      return self.globals.get(var.name)
+    return self.environment.get_at(self.locals[var.name.lexeme], var.name)
 
   def visit_IfStmt(self, if_stmt):
     condition_result = if_stmt.condition.accept(self)
