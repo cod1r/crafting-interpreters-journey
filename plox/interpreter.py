@@ -5,6 +5,8 @@ from lox_tokens import TokenType
 from lox_callable import LoxCallable, LoxFunction
 from runtime_error import LoxRuntimeError
 import time
+from lox_class import LoxClass
+from lox_instance import LoxInstance
 class NativeClockCall(LoxCallable):
   def __init__(self):
     super().__init__(0)
@@ -108,7 +110,8 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
 
   def visit_PrintStmt(self, print_stmt):
     value = print_stmt.expr.accept(self)
-    print(value)
+    is_fn_or_class = isinstance(value, LoxClass) or isinstance(value, LoxFunction)
+    print(value if not is_fn_or_class else value.to_string())
 
   def visit_Var(self, var_stmt):
     self.environment.define(var_stmt.name.lexeme, var_stmt.initializer.accept(self) if var_stmt.initializer is not None else None)
@@ -173,3 +176,25 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
 
   def visit_ReturnStmt(self, return_stmt):
     self.return_value = return_stmt.value.accept(self) if return_stmt.value is not None else None
+
+  def visit_ClassStmt(self, class_stmt):
+    methods = {}
+    for fn in class_stmt.methods:
+      method = LoxFunction(fn, environment)
+      methods[fn.name.lexeme] = method
+    lox_class = LoxClass(class_stmt.name.lexeme, methods)
+    self.environment.define(class_stmt.name.lexeme, lox_class)
+
+  def visit_Get(self, get):
+    class_object = get.object.accept(self)
+    if isinstance(class_object, LoxInstance):
+      return class_object.get(get.name)
+    raise self.lox.error_with_token(get.name, "Only instances have properties")
+
+  def visit_Set(self, set):
+    object = set.object.accept(self)
+    if not isinstance(object, LoxInstance):
+      raise self.lox.error_with_token(set.name, "Only instances have properties")
+    value = set.value.accept(self)
+    object.set(set.name, value)
+    return value

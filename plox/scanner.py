@@ -34,7 +34,7 @@ class Scanner:
       case ',':
         self.add_token(TokenType.COMMA)
       case '.':
-        self.add_token(TokenType.PERIOD)
+        self.add_token(TokenType.DOT)
       case '-':
         self.add_token(TokenType.MINUS)
       case '+':

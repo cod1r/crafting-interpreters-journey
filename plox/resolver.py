@@ -6,6 +6,7 @@ from enum import Enum, auto
 class FunctionType(Enum):
   FUNCTION = auto()
   NONE = auto()
+  METHOD = auto()
 
 class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
   def __init__(self, interpreter, lox):
@@ -118,3 +119,16 @@ class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
 
   def visit_Unary(self, unary):
     self.resolve(unary.expr)
+
+  def visit_ClassStmt(self, class_stmt):
+    self.declare(class_stmt.name)
+    self.define(class_stmt.name)
+    for method in class_stmt.methods:
+      self.resolve_function(method, FunctionType.METHOD)
+
+  def visit_Get(self, get):
+    self.resolve(get.object)
+
+  def visit_Set(self, set):
+    self.resolve(set.object)
+    self.resolve(set.value)

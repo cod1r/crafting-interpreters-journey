@@ -1,5 +1,5 @@
-from expression_syntax_types import Binary, Unary, Literal, Grouping, Variable, Assignment, Logical, Call
-from statement_syntax_types import PrintStmt, ExprStmt, Var, Block, IfStmt, WhileStmt, Function, ReturnStmt
+from expression_syntax_types import Binary, Unary, Literal, Grouping, Variable, Assignment, Logical, Call, Get, Set
+from statement_syntax_types import PrintStmt, ExprStmt, Var, Block, IfStmt, WhileStmt, Function, ReturnStmt, ClassStmt
 from lox_tokens import TokenType, Token
 import lox
 class Parser:
@@ -24,7 +24,22 @@ class Parser:
       return self.var_decl()
     if self.match(TokenType.FUN):
       return self.fun("function")
+    if self.match(TokenType.CLASS):
+      return self.class_stmt()
     return self.statement()
+
+  def class_stmt(self):
+    if self.match(TokenType.IDENTIFIER):
+      ident = self.previous()
+      if self.match(TokenType.LEFT_BRACE):
+        fns = []
+        while self.peek().type == TokenType.IDENTIFIER:
+          fns.append(self.fun("method"))
+        if self.match(TokenType.RIGHT_BRACE):
+          return ClassStmt(ident, fns)
+        raise self.lox.error_with_token(self.peek(), "Expected '}' for class body")
+      raise self.lox.error_with_token(self.peek(), "Expected '{' for class body")
+    raise self.lox.error_with_token(self.peek(), "Expected name for class")
 
   def fun(self, kind):
     if self.match(TokenType.IDENTIFIER):
@@ -173,6 +188,8 @@ class Parser:
       value = self.assignment()
       if isinstance(expr, Variable):
         return Assignment(expr.name, value)
+      if isinstance(expr, Get):
+        return Set(expr.object, expr.name, value)
       self.lox.error_with_token(eq, "Invalid assignment")
     return expr
 
@@ -233,12 +250,21 @@ class Parser:
 
   def call(self):
     expr = self.primary()
-    while self.match(TokenType.LEFT_PAREN):
-      args = self.arguments()
-      if self.match(TokenType.RIGHT_PAREN):
-        expr = Call(expr, self.previous(), args)
+    while True:
+      if self.match(TokenType.LEFT_PAREN):
+        args = self.arguments()
+        if self.match(TokenType.RIGHT_PAREN):
+          expr = Call(expr, self.previous(), args)
+        else:
+          raise self.lox.error_with_token(self.peek(), "Expected ')'")
+      elif self.match(TokenType.DOT):
+        if self.match(TokenType.IDENTIFIER):
+          name = self.previous()
+          expr = Get(name, expr)
+        else:
+          raise self.lox.error_with_token(self.peek(), "Expected property name after property access")
       else:
-        raise self.lox.error_with_token(self.peek(), "Expected ')'")
+        break
     return expr
 
   def arguments(self):
