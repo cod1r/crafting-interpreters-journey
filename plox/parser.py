@@ -1,4 +1,4 @@
-from expression_syntax_types import Binary, Unary, Literal, Grouping, Variable, Assignment, Logical, Call, Get, Set, This
+from expression_syntax_types import Binary, Unary, Literal, Grouping, Variable, Assignment, Logical, Call, Get, Set, This, SuperExpr
 from statement_syntax_types import PrintStmt, ExprStmt, Var, Block, IfStmt, WhileStmt, Function, ReturnStmt, ClassStmt
 from lox_tokens import TokenType, Token
 import lox
@@ -31,12 +31,18 @@ class Parser:
   def class_stmt(self):
     if self.match(TokenType.IDENTIFIER):
       ident = self.previous()
+      superclass = None
+      if self.match(TokenType.LESS):
+        if self.match(TokenType.IDENTIFIER):
+          superclass = Variable(self.previous())
+        else:
+          raise self.lox.error_with_token(self.peek(), "Expected identifier for superclass name")
       if self.match(TokenType.LEFT_BRACE):
         fns = []
         while self.peek().type == TokenType.IDENTIFIER:
           fns.append(self.fun("method"))
         if self.match(TokenType.RIGHT_BRACE):
-          return ClassStmt(ident, fns)
+          return ClassStmt(ident, fns, superclass)
         raise self.lox.error_with_token(self.peek(), "Expected '}' for class body")
       raise self.lox.error_with_token(self.peek(), "Expected '{' for class body")
     raise self.lox.error_with_token(self.peek(), "Expected name for class")
@@ -291,6 +297,13 @@ class Parser:
       return Variable(self.previous())
     if self.match(TokenType.THIS):
       return This(self.previous())
+    if self.match(TokenType.SUPER):
+      token = self.previous()
+      if self.match(TokenType.DOT):
+        if self.match(TokenType.IDENTIFIER):
+          return SuperExpr(token, Variable(self.previous()))
+        raise self.lox.error_with_token(self.peek(), "Expected identifer after 'super.'")
+      raise self.lox.error_with_token(self.peek(), "Expected '.' after 'super'")
     raise self.lox.error_with_token(self.peek(), "Expected '(' or NUMBER,STRING,TRUE,FALSE,NIL")
 
   def match(self, *args):

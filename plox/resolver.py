@@ -1,4 +1,4 @@
-from expression_syntax_types import This, Visitor as ExprVisitor
+from expression_syntax_types import This, Visitor as ExprVisitor, SuperExpr
 from statement_syntax_types import Visitor as StmtVisitor
 import lox
 from enum import Enum, auto
@@ -12,6 +12,7 @@ class FunctionType(Enum):
 class ClassType(Enum):
   NONE = auto()
   CLASS = auto()
+  SUBCLASS = auto()
 
 class Resolver(ExprVisitor, StmtVisitor):
   def __init__(self, interpreter, lox):
@@ -78,8 +79,14 @@ class Resolver(ExprVisitor, StmtVisitor):
     self.resolve_local(var, var)
 
   def resolve_local(self, expr, var):
+    var_str = None
+    if isinstance(expr, This):
+      var_str = "this"
+    elif isinstance(expr, SuperExpr):
+      var_str = "super"
+    else:
+      var_str = var.name.lexeme
     for idx in range(len(self.scopes) - 1, -1, -1):
-      var_str = "this" if isinstance(expr, This) else var.name.lexeme
       if var_str in self.scopes[idx]:
         self.interpreter.resolve(expr, len(self.scopes) - 1 - idx)
         return
@@ -138,11 +145,24 @@ class Resolver(ExprVisitor, StmtVisitor):
     self.define(class_stmt.name)
     prev = self.current_class
     self.current_class = ClassType.CLASS
+
+    if class_stmt.superclass is not None and class_stmt.superclass.name.lexeme == class_stmt.name.lexeme:
+      self.lox.error_with_token(class_stmt.superclass.name, "cannot inherit itself")
+    if class_stmt.superclass is not None:
+      self.current_class = ClassType.SUBCLASS
+      self.resolve(class_stmt.superclass)
+      self.begin_scope()
+      self.scopes[-1]["super"] = True
+
     self.begin_scope()
     self.scopes[-1]["this"] = True
     for method in class_stmt.methods:
       self.resolve_function(method, FunctionType.METHOD if method.name.lexeme != "init" else FunctionType.INIT)
     self.end_scope()
+
+    if class_stmt.superclass is not None:
+      self.end_scope()
+
     self.current_class = prev
 
   def visit_Get(self, get):
@@ -157,3 +177,10 @@ class Resolver(ExprVisitor, StmtVisitor):
       self.lox.error_with_token(this.token, "can't use 'this' in non class context")
       return
     self.resolve_local(this, None)
+
+  def visit_SuperExpr(self, super_expr):
+    if self.current_class is None:
+      self.lox.error_with_token(super_expr.token, "Cannot use 'super' outside of a class")
+    elif self.current_class is not ClassType.SUBCLASS:
+      self.lox.error_with_token(super_expr.token, "Cannot use 'super' in a class without a superclass")
+    self.resolve_local(super_expr, None)

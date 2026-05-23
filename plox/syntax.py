@@ -37,7 +37,8 @@ def generate_ast_classes():
     ["Call", ["callee", "closing_paren", "arguments"]],
     ["Get", ["name", "object"]],
     ["Set", ["object", "name", "value"]],
-    ["This", ["token"]]
+    ["This", ["token"]],
+    ["SuperExpr", ["token", "method"]]
   ]
   formatted_for_expression = get_formatted_string("Expression", expression_types)
   with open(f"expression_syntax_types.py", "w+") as f:
@@ -53,7 +54,7 @@ def generate_ast_classes():
     ["WhileStmt", ["condition", "body"]],
     ["Function", ["name", "parameters", "body"]],
     ["ReturnStmt", ["return_token", "value"]],
-    ["ClassStmt", ["name", "methods"]]
+    ["ClassStmt", ["name", "methods", "superclass"]]
   ]
   formatted_for_statement = get_formatted_string("Statement", statement_types)
   with open(f"statement_syntax_types.py", "w+") as f:

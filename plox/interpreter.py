@@ -179,11 +179,23 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
     self.return_value = return_stmt.value.accept(self) if return_stmt.value is not None else None
 
   def visit_ClassStmt(self, class_stmt):
+    superclass = None
+    if class_stmt.superclass is not None:
+      superclass = class_stmt.superclass.accept(self)
+      if not isinstance(superclass, LoxClass):
+        raise LoxRuntimeError(class_stmt.superclass.name, "Superclass must be a class")
+      self.environment = environment.Environment(self.environment)
+      self.environment.define("super", superclass)
+
     methods = {}
     for fn in class_stmt.methods:
-      method = LoxFunction(fn, environment, fn.name.lexeme == "init")
+      method = LoxFunction(fn, self.environment, fn.name.lexeme == "init")
       methods[fn.name.lexeme] = method
-    lox_class = LoxClass(class_stmt.name.lexeme, methods)
+    lox_class = LoxClass(class_stmt.name.lexeme, methods, superclass)
+
+    if class_stmt.superclass is not None:
+      self.environment = self.environment.enclosing
+
     self.environment.define(class_stmt.name.lexeme, lox_class)
 
   def visit_Get(self, get):
@@ -202,3 +214,12 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
 
   def visit_This(self, this):
     return self.lookup_variable(this)
+
+  def visit_SuperExpr(self, super_expr):
+    dist = self.locals[super_expr]
+    this_object = self.environment.get_at(dist - 1, "this")
+    superclass = self.environment.get_at(dist, "super")
+    method = superclass.find_method(super_expr.method.name.lexeme)
+    if method is None:
+      raise LoxRuntimeError(super_expr.method.name, f"Undefined method '{super_expr.method.name.lexeme}' on {superclass.name}")
+    return method.bind(this_object)
