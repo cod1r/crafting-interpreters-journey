@@ -21,7 +21,7 @@ class Environment:
 
   def get_at(self, dist, name_to_find):
     values = self.ancestor(dist).values
-    return values[name_to_find.lexeme]
+    return values[name_to_find]
 
   def ancestor(self, dist):
     env = self

@@ -53,7 +53,7 @@ class Lox:
 
   def run_repl(self):
     while line := input():
-      run(line)
+      self.run(line)
     self.had_error = False
 
 if __name__ == "__main__":

@@ -7,6 +7,11 @@ class FunctionType(Enum):
   FUNCTION = auto()
   NONE = auto()
   METHOD = auto()
+  INIT = auto()
+
+class ClassType(Enum):
+  NONE = auto()
+  CLASS = auto()
 
 class Resolver(ExprVisitor, StmtVisitor):
   def __init__(self, interpreter, lox):
@@ -14,6 +19,7 @@ class Resolver(ExprVisitor, StmtVisitor):
     self.scopes = []
     self.current_function = FunctionType.NONE
     self.lox = lox
+    self.current_class = ClassType.NONE
 
   def visit_Block(self, block):
     self.begin_scope()
@@ -97,6 +103,8 @@ class Resolver(ExprVisitor, StmtVisitor):
     if self.current_function is FunctionType.NONE:
       self.lox.error_with_token(return_stmt.return_token, "can't return from top level code")
     if return_stmt.value is not None:
+      if self.current_function is FunctionType.INIT:
+        self.lox.error_with_token(return_stmt.return_token, "can't return value from init method")
       self.resolve(return_stmt.value)
 
   def visit_WhileStmt(self, while_stmt):
@@ -128,11 +136,14 @@ class Resolver(ExprVisitor, StmtVisitor):
   def visit_ClassStmt(self, class_stmt):
     self.declare(class_stmt.name)
     self.define(class_stmt.name)
+    prev = self.current_class
+    self.current_class = ClassType.CLASS
     self.begin_scope()
     self.scopes[-1]["this"] = True
     for method in class_stmt.methods:
-      self.resolve_function(method, FunctionType.METHOD)
+      self.resolve_function(method, FunctionType.METHOD if method.name.lexeme != "init" else FunctionType.INIT)
     self.end_scope()
+    self.current_class = prev
 
   def visit_Get(self, get):
     self.resolve(get.object)
@@ -142,4 +153,7 @@ class Resolver(ExprVisitor, StmtVisitor):
     self.resolve(set.value)
 
   def visit_This(self, this):
+    if self.current_class is ClassType.NONE:
+      self.lox.error_with_token(this.token, "can't use 'this' in non class context")
+      return
     self.resolve_local(this, None)

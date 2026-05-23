@@ -5,8 +5,7 @@ from lox_tokens import TokenType
 from lox_callable import LoxCallable, LoxFunction
 from runtime_error import LoxRuntimeError
 import time
-from lox_class import LoxClass
-from lox_instance import LoxInstance
+from lox_class import LoxClass, LoxInstance
 class NativeClockCall(LoxCallable):
   def __init__(self):
     super().__init__(0)
@@ -138,8 +137,8 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
     if var not in self.locals:
       return self.globals.get(var.name)
     if isinstance(var, This):
-      return self.environment.get_at(self.locals[var], var.token)
-    return self.environment.get_at(self.locals[var], var.name)
+      return self.environment.get_at(self.locals[var], "this")
+    return self.environment.get_at(self.locals[var], var.name.lexeme)
 
   def visit_IfStmt(self, if_stmt):
     condition_result = if_stmt.condition.accept(self)
@@ -174,7 +173,7 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
     return callee.call(self, args_interpreted)
 
   def visit_Function(self, function):
-    self.environment.define(function.name.lexeme, LoxFunction(function, self.environment))
+    self.environment.define(function.name.lexeme, LoxFunction(function, self.environment, False))
 
   def visit_ReturnStmt(self, return_stmt):
     self.return_value = return_stmt.value.accept(self) if return_stmt.value is not None else None
@@ -182,7 +181,7 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
   def visit_ClassStmt(self, class_stmt):
     methods = {}
     for fn in class_stmt.methods:
-      method = LoxFunction(fn, environment)
+      method = LoxFunction(fn, environment, fn.name.lexeme == "init")
       methods[fn.name.lexeme] = method
     lox_class = LoxClass(class_stmt.name.lexeme, methods)
     self.environment.define(class_stmt.name.lexeme, lox_class)
