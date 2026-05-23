@@ -6,7 +6,7 @@ class Visitor(ABC):
   for name, parameters in class_types:
     formatted += f"""
   def visit_{name}(self, {name.lower()}):
-    pass
+    raise RuntimeError("DIDNT IMPLEMENT VISIT FOR {name} from {syntax_class}")
 """
   return formatted
 def get_formatted_string(syntax_class, class_types):

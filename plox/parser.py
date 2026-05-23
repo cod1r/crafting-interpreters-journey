@@ -290,7 +290,7 @@ class Parser:
     if self.match(TokenType.IDENTIFIER):
       return Variable(self.previous())
     if self.match(TokenType.THIS):
-      return This(Variable(self.previous()))
+      return This(self.previous())
     raise self.lox.error_with_token(self.peek(), "Expected '(' or NUMBER,STRING,TRUE,FALSE,NIL")
 
   def match(self, *args):

@@ -1,5 +1,5 @@
-import expression_syntax_types
-import statement_syntax_types
+from expression_syntax_types import This, Visitor as ExprVisitor
+from statement_syntax_types import Visitor as StmtVisitor
 import lox
 from enum import Enum, auto
 
@@ -8,7 +8,7 @@ class FunctionType(Enum):
   NONE = auto()
   METHOD = auto()
 
-class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
+class Resolver(ExprVisitor, StmtVisitor):
   def __init__(self, interpreter, lox):
     self.interpreter = interpreter
     self.scopes = []
@@ -67,19 +67,20 @@ class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
     inner_most[name.lexeme] = True
 
   def visit_Variable(self, var):
-    if len(self.scopes) > 0 and self.scopes[-1][var.name.lexeme] == False:
+    if len(self.scopes) > 0 and var.name.lexeme in self.scopes[-1] and self.scopes[-1][var.name.lexeme] == False:
       self.lox.error_with_token(var.name, "Cannot read local variable in its own initializer")
-    self.resolve_local(var)
+    self.resolve_local(var, var)
 
-  def resolve_local(self, var):
+  def resolve_local(self, expr, var):
     for idx in range(len(self.scopes) - 1, -1, -1):
-      if var.name.lexeme in self.scopes[idx]:
-        self.interpreter.resolve(var, len(self.scopes) - 1 - idx)
+      var_str = "this" if isinstance(expr, This) else var.name.lexeme
+      if var_str in self.scopes[idx]:
+        self.interpreter.resolve(expr, len(self.scopes) - 1 - idx)
         return
 
   def visit_Assignment(self, assignment):
     self.resolve(assignment.value)
-    self.resolve_local(assignment)
+    self.resolve_local(assignment, assignment)
 
   def visit_ExprStmt(self, expr_stmt):
     self.resolve(expr_stmt.expr)
@@ -112,7 +113,7 @@ class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
       self.resolve(arg)
 
   def visit_Grouping(self, grouping):
-    self.resolve(grouping)
+    self.resolve(grouping.expr)
 
   def visit_Literal(self, literal):
     return
@@ -141,4 +142,4 @@ class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
     self.resolve(set.value)
 
   def visit_This(self, this):
-    self.resolve_local(this.token)
+    self.resolve_local(this, None)

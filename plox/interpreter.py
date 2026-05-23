@@ -1,4 +1,4 @@
-from expression_syntax_types import Visitor, Variable
+from expression_syntax_types import Visitor, Variable, This
 import statement_syntax_types
 import environment
 from lox_tokens import TokenType
@@ -98,11 +98,11 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
 
   def visit_Assignment(self, assignment):
     new_val = assignment.value.accept(self)
-    if assignment.name.lexeme not in self.locals:
+    if assignment not in self.locals:
       self.globals.assign(assignment.name, new_val)
     else:
-      dist = self.locals[assignment.name.lexeme]
-      self.environment.assign_at(dist, assignment.name.lexeme, new_val)
+      dist = self.locals[assignment]
+      self.environment.assign_at(dist, assignment.name, new_val)
     return new_val
 
   def visit_ExprStmt(self, expr_stmt):
@@ -131,13 +131,15 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
       finally:
         self.environment = prev
 
-  def resolve(self, var, depth):
-    self.locals[var.name.lexeme] = depth
+  def resolve(self, expr, depth):
+    self.locals[expr] = depth
 
   def lookup_variable(self, var):
-    if var.name.lexeme not in self.locals:
+    if var not in self.locals:
       return self.globals.get(var.name)
-    return self.environment.get_at(self.locals[var.name.lexeme], var.name)
+    if isinstance(var, This):
+      return self.environment.get_at(self.locals[var], var.token)
+    return self.environment.get_at(self.locals[var], var.name)
 
   def visit_IfStmt(self, if_stmt):
     condition_result = if_stmt.condition.accept(self)
@@ -200,4 +202,4 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
     return value
 
   def visit_This(self, this):
-    return self.lookup_variable(this.token)
+    return self.lookup_variable(this)

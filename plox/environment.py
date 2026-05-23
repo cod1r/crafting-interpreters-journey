@@ -17,7 +17,7 @@ class Environment:
       self.values[name_var.lexeme] = new_val
       return
     if self.enclosing is not None: return self.enclosing.assign(name_var, new_val)
-    raise LoxRuntimeError(name, f"Undefined variable {name_var.lexeme}")
+    raise LoxRuntimeError(name_var, f"Undefined variable {name_var.lexeme}")
 
   def get_at(self, dist, name_to_find):
     values = self.ancestor(dist).values
