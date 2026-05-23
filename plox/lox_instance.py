@@ -6,7 +6,7 @@ class LoxInstance:
   def get(self, name):
     if name.lexeme in self.fields: return self.fields[name.lexeme]
     method = self.find_method(name)
-    if method is not None: return method
+    if method is not None: return method.bind(self)
     raise RuntimeError(f"Undefined property {name.lexeme}")
 
   def find_method(self, name):
@@ -16,4 +16,4 @@ class LoxInstance:
     self.fields[name.lexeme] = value
 
   def to_string(self):
-    return self.class_type + " instance"
+    return self.class_type.to_string() + " instance"

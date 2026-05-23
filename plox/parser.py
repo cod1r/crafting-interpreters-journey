@@ -1,4 +1,4 @@
-from expression_syntax_types import Binary, Unary, Literal, Grouping, Variable, Assignment, Logical, Call, Get, Set
+from expression_syntax_types import Binary, Unary, Literal, Grouping, Variable, Assignment, Logical, Call, Get, Set, This
 from statement_syntax_types import PrintStmt, ExprStmt, Var, Block, IfStmt, WhileStmt, Function, ReturnStmt, ClassStmt
 from lox_tokens import TokenType, Token
 import lox
@@ -289,6 +289,8 @@ class Parser:
         raise self.lox.error_with_token(self.previous(), "Expected ')'")
     if self.match(TokenType.IDENTIFIER):
       return Variable(self.previous())
+    if self.match(TokenType.THIS):
+      return This(Variable(self.previous()))
     raise self.lox.error_with_token(self.peek(), "Expected '(' or NUMBER,STRING,TRUE,FALSE,NIL")
 
   def match(self, *args):

@@ -12,11 +12,11 @@ class Lox:
     self.had_error = False
     self.had_runtime_error = False
 
-  def runtime_error(error):
+  def runtime_error(self, error):
     self.had_runtime_error = True
     print(error.message, f"Line: {error.token.line} at {error.token.lexeme}")
 
-  def error(line, message):
+  def error(self, line, message):
     self.had_error = True
     self.report(line, "", message)
 

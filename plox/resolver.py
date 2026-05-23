@@ -45,6 +45,7 @@ class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
     for param in function.parameters:
       self.declare(param)
       self.define(param)
+    self.resolve(function.body)
     self.end_scope()
     self.current_function = prev
 
@@ -88,6 +89,9 @@ class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
     self.resolve(if_stmt.then)
     if if_stmt.else_ is not None: self.resolve(if_stmt.else_)
 
+  def visit_PrintStmt(self, print_stmt):
+    self.resolve(print_stmt.expr)
+
   def visit_ReturnStmt(self, return_stmt):
     if self.current_function is FunctionType.NONE:
       self.lox.error_with_token(return_stmt.return_token, "can't return from top level code")
@@ -99,8 +103,8 @@ class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
     self.resolve(while_stmt.body)
 
   def visit_Binary(self, binary):
-    self.resolve(binary.left)
-    self.resolve(binary.right)
+    self.resolve(binary.left_expr)
+    self.resolve(binary.right_expr)
 
   def visit_Call(self, call):
     self.resolve(call.callee)
@@ -123,8 +127,11 @@ class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
   def visit_ClassStmt(self, class_stmt):
     self.declare(class_stmt.name)
     self.define(class_stmt.name)
+    self.begin_scope()
+    self.scopes[-1]["this"] = True
     for method in class_stmt.methods:
       self.resolve_function(method, FunctionType.METHOD)
+    self.end_scope()
 
   def visit_Get(self, get):
     self.resolve(get.object)
@@ -132,3 +139,6 @@ class Resolver(expression_syntax_types.Visitor, statement_syntax_types.Visitor):
   def visit_Set(self, set):
     self.resolve(set.object)
     self.resolve(set.value)
+
+  def visit_This(self, this):
+    self.resolve_local(this.token)

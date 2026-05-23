@@ -1,4 +1,4 @@
-from expression_syntax_types import Visitor
+from expression_syntax_types import Visitor, Variable
 import statement_syntax_types
 import environment
 from lox_tokens import TokenType
@@ -186,9 +186,9 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
     self.environment.define(class_stmt.name.lexeme, lox_class)
 
   def visit_Get(self, get):
-    class_object = get.object.accept(self)
-    if isinstance(class_object, LoxInstance):
-      return class_object.get(get.name)
+    object = get.object.accept(self)
+    if isinstance(object, LoxInstance):
+      return object.get(get.name)
     raise self.lox.error_with_token(get.name, "Only instances have properties")
 
   def visit_Set(self, set):
@@ -198,3 +198,6 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
     value = set.value.accept(self)
     object.set(set.name, value)
     return value
+
+  def visit_This(self, this):
+    return self.lookup_variable(this.token)

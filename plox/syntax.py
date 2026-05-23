@@ -36,7 +36,8 @@ def generate_ast_classes():
     ["Logical", ["left_expr", "op", "right_expr"]],
     ["Call", ["callee", "closing_paren", "arguments"]],
     ["Get", ["name", "object"]],
-    ["Set", ["object", "name", "value"]]
+    ["Set", ["object", "name", "value"]],
+    ["This", ["token"]]
   ]
   formatted_for_expression = get_formatted_string("Expression", expression_types)
   with open(f"expression_syntax_types.py", "w+") as f:
