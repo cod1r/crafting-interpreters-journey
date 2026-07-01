@@ -17,7 +17,7 @@ class Interpreter(Visitor, statement_syntax_types.Visitor):
   def __init__(self, lox):
     self.environment = environment.Environment()
     self.globals = self.environment
-    self.globals.define("clock", NativeClockCall)
+    self.globals.define("clock", NativeClockCall())
     self.return_value = None
     self.locals = {}
     self.lox = lox
