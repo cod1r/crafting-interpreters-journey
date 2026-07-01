@@ -10,8 +10,9 @@ void initChunk(Chunk* chunk) {
 
 void writeChunk(Chunk* chunk, uint8_t byte) {
   if (chunk->count + 1 > chunk->capacity) {
+    size_t oldCap = chunk->capacity;
     chunk->capacity = GROW_CAPACITY(chunk->capacity);
-    uint8_t* new_code = reallocate(chunk->code, chunk->capacity);
+    uint8_t* new_code = reallocate(chunk->code, oldCap, chunk->capacity);
     chunk->code = new_code;
   }
   chunk->code[chunk->count] = byte;
