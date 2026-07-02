@@ -14,7 +14,7 @@ void writeValueArr(ValueArray* arr, Value val) {
     size_t oldCap = arr->capacity;
     arr->capacity = GROW_CAPACITY(arr->capacity);
     Value* new_values = reallocate(
-      arr->values, sizeof(Value) * oldCap, arr->capacity);
+      arr->values, sizeof(Value) * oldCap, sizeof(Value) * arr->capacity);
     arr->values = new_values;
   }
   arr->values[arr->count] = val;

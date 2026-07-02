@@ -25,7 +25,19 @@ void push(Value v) {
 }
 
 Value pop() {
-  return *(vm.stack_top--);
+  return *(--vm.stack_top);
+}
+
+void handle_binary_op(uint8_t op) {
+  Value b = pop();
+  Value a = pop();
+  switch (op) {
+    case OP_ADD: push(a + b); break;
+    case OP_SUBTRACT: push(a - b); break;
+    case OP_MULTIPLY: push(a * b); break;
+    case OP_DIVIDE: push(a / b); break;
+    default: printf("UNKNOWN BINARY OP %d\n", op); exit(1);
+  }
 }
 
 InterpretResult run() {
@@ -53,6 +65,15 @@ InterpretResult run() {
         push(constant);
         break;
       }
+      case OP_NEGATE:
+        push(-pop());
+        break;
+      case OP_ADD:
+      case OP_SUBTRACT:
+      case OP_MULTIPLY:
+      case OP_DIVIDE:
+        handle_binary_op(instruction);
+        break;
       default:
         printf("UNKNOWN OPCODE %4d\n", instruction);
         exit(1);

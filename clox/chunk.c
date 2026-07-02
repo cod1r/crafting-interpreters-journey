@@ -16,9 +16,11 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
     size_t oldCap = chunk->capacity;
     chunk->capacity = GROW_CAPACITY(chunk->capacity);
     uint8_t* new_code = reallocate(
-      chunk->code, sizeof(uint8_t) * oldCap, chunk->capacity);
+      chunk->code,
+      sizeof(uint8_t) * oldCap, sizeof(uint8_t) * chunk->capacity);
     int* new_lines = reallocate(
-      chunk->lines, sizeof(int) * oldCap, chunk->capacity);
+      chunk->lines,
+      sizeof(int) * oldCap, sizeof(int) * chunk->capacity);
     chunk->code = new_code;
     chunk->lines = new_lines;
   }
