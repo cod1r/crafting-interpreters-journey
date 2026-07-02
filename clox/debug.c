@@ -26,6 +26,12 @@ static int constantInstruction(
 
 int disassembleInstruction(Chunk* chunk, int offset) {
   printf("%04d ", offset);
+  if (offset > 0 &&
+    chunk->lines[offset - 1] == chunk->lines[offset]) {
+    printf("   | ");
+  } else {
+    printf("%04d ", chunk->lines[offset]);
+  }
   switch (chunk->code[offset]) {
     case OP_CONSTANT:
       return constantInstruction("OP_CONSTANT", chunk, offset);
