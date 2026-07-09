@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "compiler.h"
 #include "common.h"
 #include "debug.h"
 #include "vm.h"
@@ -81,8 +82,7 @@ InterpretResult run() {
   }
 }
 
-InterpretResult interpret(Chunk* chunk) {
-  vm.chunk = chunk;
-  vm.instruction_ptr = chunk->code;
-  return run();
+InterpretResult interpret(const char* source) {
+  compile(source);
+  return INTERPRET_SUCCESS;
 }
