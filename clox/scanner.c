@@ -68,14 +68,14 @@ bool isComment() {
 }
 
 void skipWhitespace() {
-  char c;
-  for (
-    c = peek();
+  char c = peek();
+  for (;
+    (c = peek(),
     c == ' '  ||
     c == '\t' ||
     c == '\r' ||
     c == '\n' ||
-    isComment();) {
+    isComment());) {
     if (peek() == '\n') {
       scanner.line ++;
     }
@@ -184,7 +184,7 @@ Token identifier() {
 Token scanToken() {
   skipWhitespace();
   scanner.start = scanner.current;
-  if (isAtEnd()) return makeToken(TOKEN_EOF);
+  if (isAtEnd()) { return makeToken(TOKEN_EOF); }
   char c = advance();
   if (isAlpha(c)) return identifier();
   if (isDigit(c)) return number();
