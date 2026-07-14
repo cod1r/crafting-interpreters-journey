@@ -2,7 +2,25 @@
 #define clox_value_h
 #include "common.h"
 
-typedef double Value;
+typedef enum {
+  VALUE_BOOL,
+  VALUE_NIL,
+  VALUE_NUMBER,
+} ValueType;
+
+typedef struct {
+  ValueType type;
+  union {
+    bool boolean;
+    double number;
+  } as;
+} Value;
+
+Value bool_value(bool value);
+
+Value nil_value();
+
+Value number_value(double value);
 
 typedef struct {
   int count;

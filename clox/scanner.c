@@ -46,7 +46,7 @@ char advance() {
 bool match(char c) {
   if (isAtEnd()) return false;
   char current = *scanner.current;
-  scanner.current++;
+  if (current == c) scanner.current++;
   return c == current;
 }
 
@@ -139,7 +139,7 @@ TokenType identifierType() {
         memcmp(scanner.start, "if", 2) == 0) return TOKEN_IF;
       break;
     case 'n':
-      if (length == 2 &&
+      if (length == 3 &&
         memcmp(scanner.start, "nil", 3) == 0) return TOKEN_NIL;
       break;
     case 'o':
