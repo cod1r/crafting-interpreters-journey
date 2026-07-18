@@ -2,6 +2,7 @@
 #include "value.h"
 #include "common.h"
 #include "memory.h"
+#include "object.h"
 
 void initValueArr(ValueArray* arr) {
   arr->count = 0;
@@ -32,6 +33,10 @@ void printValue(Value v) {
     case VALUE_NIL: { printf("NIL"); break; }
     case VALUE_BOOL: {
       printf("%s", v.as.boolean ? "true" : "false"); break; }
+    case VALUE_OBJECT: {
+      printObject(v);
+      break;
+    }
   }
 }
 
@@ -45,5 +50,9 @@ Value nil_value() {
 
 Value number_value(double value) {
   return (Value){VALUE_NUMBER, { .number = value }};
+}
+
+Value object_value(Obj* obj) {
+  return (Value){VALUE_OBJECT, { .obj = obj }};
 }
 

@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 #include "compiler.h"
 #include "common.h"
 #include "debug.h"
 #include "vm.h"
+#include "memory.h"
+#include "object.h"
 
 VM vm;
 
@@ -31,6 +34,7 @@ void initVM() {
 }
 
 void freeVM() {
+  freeObjects();
 }
 
 void push(Value v) {
@@ -70,6 +74,17 @@ void handle_binary_op(uint8_t op) {
           case VALUE_BOOL:
             push(bool_value(a.as.boolean == b.as.boolean));
             break;
+          case VALUE_OBJECT:
+            switch (a.as.obj->type) {
+              case OBJ_STRING: {
+                ObjString* aString = (ObjString*)a.as.obj;
+                ObjString* bString = (ObjString*)b.as.obj;
+                push(bool_value(aString->length == bString->length &&
+                                memcpy(aString->chars, bString->chars,
+                                aString->length) == 0));
+                break;
+              }
+            }
         }
       }
       break;
@@ -80,10 +95,25 @@ void handle_binary_op(uint8_t op) {
   }
 }
 
+static void concatenate() {
+  ObjString* b = (ObjString*)pop().as.obj;
+  ObjString* a = (ObjString*)pop().as.obj;
+  int newLength = a->length + b->length;
+  char* newCString = reallocate(NULL, 0, sizeof(char) * newLength);
+  memcpy(newCString, a->chars, a->length);
+  memcpy(newCString + a->length, b->chars, b->length);
+  newCString[newLength] = '\0';
+  push(object_value((Obj*)allocateString(newCString, newLength)));
+}
+
 InterpretResult run() {
   while (true) {
 #ifdef DEBUG_TRACE_EXECUTION
   printf("DEBUG STACK INFO:\n");
+  if (vm.stack_top - vm.stack > 256) {
+    printf("STACK OVERFLOW!!");
+    return INTERPRET_RUNTIME_ERROR;
+  }
   for (Value* v = vm.stack; v < vm.stack_top; ++v) {
     printf("[ ");
     printValue(*v);
@@ -121,17 +151,24 @@ InterpretResult run() {
               (popped.type == VALUE_BOOL && !popped.as.boolean)));
         break;
       }
+      case OP_ADD:
+        if (isObjType(peek(0), OBJ_STRING) &&
+            isObjType(peek(1), OBJ_STRING)) {
+          concatenate();
+          break;
+        }
       case OP_EQUAL:
         handle_binary_op(instruction);
         break;
       case OP_LESS:
       case OP_GREATER:
-      case OP_ADD:
       case OP_SUBTRACT:
       case OP_MULTIPLY:
       case OP_DIVIDE:
-        if (peek(0).type != VALUE_NUMBER || peek(1).type != VALUE_NUMBER) {
-          runtimeError("Operands must be a number.");
+        if (peek(0).type != VALUE_NUMBER || peek(1).type != VALUE_NUMBER ||
+            !isObjType(peek(0), OBJ_STRING) ||
+            !isObjType(peek(1), OBJ_STRING)) {
+          runtimeError("Operands must be two numbers or two strings.");
           return INTERPRET_RUNTIME_ERROR;
         }
         handle_binary_op(instruction);

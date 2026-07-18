@@ -84,12 +84,13 @@ void skipWhitespace() {
 }
 
 Token string() {
-  while (peek() != '"' &&
-    !isAtEnd()) {
+  while (!isAtEnd() &&
+    peek() != '"') {
     if (peek() == '\n') ++scanner.line;
     advance();
   }
-  if (isAtEnd()) return errorToken("Unterminated string.");
+  if (isAtEnd() || peek() != '"') return errorToken("Unterminated string.");
+  advance();
   return makeToken(TOKEN_STRING);
 }
 
