@@ -30,10 +30,12 @@ static void runtimeError(const char* fmt, ...) {
 void initVM() {
   vm.chunk = NULL;
   vm.instruction_ptr = NULL;
+  initTable(&vm.strings);
   resetStack();
 }
 
 void freeVM() {
+  freeTable(&vm.strings);
   freeObjects();
 }
 
@@ -79,9 +81,7 @@ void handle_binary_op(uint8_t op) {
               case OBJ_STRING: {
                 ObjString* aString = (ObjString*)a.as.obj;
                 ObjString* bString = (ObjString*)b.as.obj;
-                push(bool_value(aString->length == bString->length &&
-                                memcpy(aString->chars, bString->chars,
-                                aString->length) == 0));
+                push(bool_value(aString == bString));
                 break;
               }
             }
@@ -99,11 +99,12 @@ static void concatenate() {
   ObjString* b = (ObjString*)pop().as.obj;
   ObjString* a = (ObjString*)pop().as.obj;
   int newLength = a->length + b->length;
-  char* newCString = reallocate(NULL, 0, sizeof(char) * newLength);
+  char* newCString = reallocate(NULL, 0, sizeof(char) * newLength + 1);
   memcpy(newCString, a->chars, a->length);
   memcpy(newCString + a->length, b->chars, b->length);
   newCString[newLength] = '\0';
-  push(object_value((Obj*)allocateString(newCString, newLength)));
+  uint32_t hash = hashString(newCString, newLength);
+  push(object_value((Obj*)allocateString(newCString, newLength, hash)));
 }
 
 InterpretResult run() {
@@ -156,6 +157,13 @@ InterpretResult run() {
             isObjType(peek(1), OBJ_STRING)) {
           concatenate();
           break;
+        } else if (
+                  (isObjType(peek(0), OBJ_STRING) &&
+                  !isObjType(peek(1), OBJ_STRING)) ||
+                  (isObjType(peek(1), OBJ_STRING) &&
+                  !isObjType(peek(0), OBJ_STRING))) {
+          runtimeError("Operands must both be strings or both be numbers.");
+          return INTERPRET_RUNTIME_ERROR;
         }
       case OP_EQUAL:
         handle_binary_op(instruction);
@@ -165,10 +173,8 @@ InterpretResult run() {
       case OP_SUBTRACT:
       case OP_MULTIPLY:
       case OP_DIVIDE:
-        if (peek(0).type != VALUE_NUMBER || peek(1).type != VALUE_NUMBER ||
-            !isObjType(peek(0), OBJ_STRING) ||
-            !isObjType(peek(1), OBJ_STRING)) {
-          runtimeError("Operands must be two numbers or two strings.");
+        if (peek(0).type != VALUE_NUMBER || peek(1).type != VALUE_NUMBER) {
+          runtimeError("Operands must both be strings or both be numbers.");
           return INTERPRET_RUNTIME_ERROR;
         }
         handle_binary_op(instruction);

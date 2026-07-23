@@ -17,7 +17,12 @@ static void repl() {
       break;
     }
 
-    interpret(line);
+    InterpretResult result = interpret(line);
+    switch (result) {
+      case INTERPRET_SUCCESS: break;
+      case INTERPRET_COMPILE_ERROR: break;
+      case INTERPRET_RUNTIME_ERROR: break;
+    }
   }
 }
 
