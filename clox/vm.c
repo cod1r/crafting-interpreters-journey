@@ -103,7 +103,12 @@ static void concatenate() {
   memcpy(newCString, a->chars, a->length);
   memcpy(newCString + a->length, b->chars, b->length);
   newCString[newLength] = '\0';
+
   uint32_t hash = hashString(newCString, newLength);
+  ObjString* interned = tableFindString(&vm.strings, newCString, newLength,
+                                        hash);
+  if (interned != NULL) { push(object_value((Obj*)interned)); return; }
+
   push(object_value((Obj*)allocateString(newCString, newLength, hash)));
 }
 
