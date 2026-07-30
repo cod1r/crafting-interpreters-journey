@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "memory.h"
@@ -14,7 +15,7 @@ void initTable(Table* table) {
 }
 
 void freeTable(Table* table) {
-  reallocate(table, sizeof(Entry) * table->capacity, 0);
+  reallocate(table->entries, sizeof(Entry) * table->capacity, 0);
   initTable(table);
 }
 

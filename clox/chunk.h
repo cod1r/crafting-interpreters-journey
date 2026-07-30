@@ -17,7 +17,12 @@ typedef enum {
   OP_SUBTRACT,
   OP_MULTIPLY,
   OP_DIVIDE,
-  OP_RETURN
+  OP_RETURN,
+  OP_PRINT,
+  OP_POP,
+  OP_DEFINE_GLOBAL,
+  OP_SET_GLOBAL,
+  OP_GET_GLOBAL
 } OpCode;
 
 typedef struct {

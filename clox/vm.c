@@ -31,11 +31,13 @@ void initVM() {
   vm.chunk = NULL;
   vm.instruction_ptr = NULL;
   initTable(&vm.strings);
+  initTable(&vm.globals);
   resetStack();
 }
 
 void freeVM() {
   freeTable(&vm.strings);
+  freeTable(&vm.globals);
   freeObjects();
 }
 
@@ -131,9 +133,46 @@ InterpretResult run() {
 #endif
     uint8_t instruction;
     switch (instruction = *(vm.instruction_ptr++)) {
-      case OP_RETURN:
+      case OP_SET_GLOBAL: {
+        ObjString* name =
+          (ObjString*)vm.chunk->constants.values[*(vm.instruction_ptr++)].as.obj;
+        if (tableSet(&vm.globals, name, peek(0))) {
+          tableDelete(&vm.globals, name);
+          runtimeError("Undefined global var '%s'", name->chars);
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        break;
+      }
+      case OP_GET_GLOBAL: {
+        ObjString* name =
+          (ObjString*)vm.chunk->constants.values[*(vm.instruction_ptr++)].as.obj;
+        Value value;
+        if (!tableGet(&vm.globals, name, &value)) {
+          runtimeError("Undefined global var '%s'", name->chars);
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        push(value);
+        break;
+      }
+      case OP_DEFINE_GLOBAL: {
+        ObjString* name =
+          (ObjString*)vm.chunk->constants.values[*(vm.instruction_ptr++)].as.obj;
+        tableSet(&vm.globals, name,
+                // peek not pop because tableSet can resize
+                // vm might need to find value still so it needs to live
+                // until after tableSet is done
+                peek(0));
+        pop();
+        break;
+      }
+      case OP_POP:
+        pop();
+        break;
+      case OP_PRINT:
         printValue(pop());
         printf("\n");
+        break;
+      case OP_RETURN:
         return INTERPRET_SUCCESS;
       case OP_CONSTANT: {
         Value constant =
