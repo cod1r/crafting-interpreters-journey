@@ -133,6 +133,11 @@ InterpretResult run() {
 #endif
     uint8_t instruction;
     switch (instruction = *(vm.instruction_ptr++)) {
+      case OP_SET_LOCAL: {
+        uint8_t slot = *(vm.instruction_ptr++);
+        vm.stack[slot] = peek(0);
+        break;
+      }
       case OP_SET_GLOBAL: {
         ObjString* name =
           (ObjString*)vm.chunk->constants.values[*(vm.instruction_ptr++)].as.obj;
@@ -141,6 +146,11 @@ InterpretResult run() {
           runtimeError("Undefined global var '%s'", name->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
+        break;
+      }
+      case OP_GET_LOCAL: {
+        uint8_t slot = *(vm.instruction_ptr++);
+        push(vm.stack[slot]);
         break;
       }
       case OP_GET_GLOBAL: {
