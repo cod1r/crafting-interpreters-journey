@@ -114,6 +114,16 @@ static void concatenate() {
   push(object_value((Obj*)allocateString(newCString, newLength, hash)));
 }
 
+static bool isFalsey(Value v) {
+  return v.type == VALUE_NIL ||
+                (v.type == VALUE_BOOL && !v.as.boolean);
+}
+
+uint16_t read_short() {
+  vm.instruction_ptr += 2;
+  return (uint16_t)(vm.instruction_ptr[-2] << 8 | vm.instruction_ptr[-1]);
+}
+
 InterpretResult run() {
   while (true) {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -133,6 +143,21 @@ InterpretResult run() {
 #endif
     uint8_t instruction;
     switch (instruction = *(vm.instruction_ptr++)) {
+      case OP_LOOP: {
+        uint16_t offset = read_short();
+        vm.instruction_ptr -= offset;
+        break;
+      }
+      case OP_JUMP: {
+        uint16_t offset = read_short();
+        vm.instruction_ptr += offset;
+        break;
+      }
+      case OP_JUMP_IF_FALSE: {
+        uint16_t offset = read_short();
+        if (isFalsey(peek(0))) vm.instruction_ptr += offset;
+        break;
+      }
       case OP_SET_LOCAL: {
         uint8_t slot = *(vm.instruction_ptr++);
         vm.stack[slot] = peek(0);
@@ -202,8 +227,7 @@ InterpretResult run() {
         break;
       case OP_NOT: {
         Value popped = pop();
-        push(bool_value(popped.type == VALUE_NIL ||
-              (popped.type == VALUE_BOOL && !popped.as.boolean)));
+        push(bool_value(isFalsey(popped)));
         break;
       }
       case OP_ADD:
