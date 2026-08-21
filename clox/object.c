@@ -44,11 +44,41 @@ ObjString* copyString(const char* chars, int length) {
   return allocateString(heapString, length, hash);
 }
 
+static void printFunction(ObjFunction* function) {
+  if (function->name == NULL) {
+    printf("<script>");
+    return;
+  }
+  printf("<fn %s>", function->name->chars);
+}
+
 void printObject(Value v) {
   switch (v.as.obj->type) {
     case OBJ_STRING: {
       printf("\"%s\"", ((ObjString*)v.as.obj)->chars);
       break;
     }
+    case OBJ_FUNCTION: {
+      printFunction((ObjFunction*)v.as.obj);
+      break;
+    }
+    case OBJ_NATIVE: {
+      printf("<native function>");
+      break;
+    }
   }
+}
+
+ObjFunction* newFunction() {
+  ObjFunction* function = (ObjFunction*)allocateObj(sizeof(ObjFunction), OBJ_FUNCTION);
+  function->arity = 0;
+  function->name = NULL;
+  initChunk(&function->chunk);
+  return function;
+}
+
+ObjNative* newNative(NativeFn function) {
+  ObjNative* nativeObj = (ObjNative*)allocateObj(sizeof(ObjNative), OBJ_NATIVE);
+  nativeObj->function = function;
+  return nativeObj;
 }

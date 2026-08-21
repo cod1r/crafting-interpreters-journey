@@ -22,6 +22,17 @@ static void freeObject(Obj* obj) {
       reallocate(s, sizeof(ObjString), 0);
       break;
     }
+    case OBJ_FUNCTION: {
+      ObjFunction* f = (ObjFunction*)obj;
+      freeChunk(&f->chunk);
+      reallocate(f, sizeof(ObjFunction*), 0);
+      break;
+    }
+    case OBJ_NATIVE: {
+      ObjNative* n = (ObjNative*)obj;
+      reallocate(n, sizeof(ObjNative*), 0);
+      break;
+    }
   }
 }
 

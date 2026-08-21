@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <time.h>
 #include "compiler.h"
 #include "common.h"
 #include "debug.h"
@@ -11,8 +12,13 @@
 
 VM vm;
 
+static Value clockNative(int argCount, Value* args) {
+  return number_value((double)clock() / CLOCKS_PER_SEC);
+}
+
 static void resetStack() {
   vm.stack_top = vm.stack;
+  vm.frameCount = 0;
 }
 
 static void runtimeError(const char* fmt, ...) {
@@ -21,18 +27,34 @@ static void runtimeError(const char* fmt, ...) {
   vfprintf(stderr, fmt, args);
   va_end(args);
   fputs("\n", stderr);
-  size_t instruction_idx = vm.instruction_ptr - vm.chunk->code - 1;
-  int line = vm.chunk->lines[instruction_idx];
-  fprintf(stderr, "[line %d] in script\n", line);
+  for (int i = vm.frameCount - 1; i >= 0; i--) {
+    CallFrame* frame = &vm.frames[i];
+    size_t instruction_idx =
+      frame->instruction_ptr - frame->function->chunk.code - 1;
+    int line = frame->function->chunk.lines[instruction_idx];
+    fprintf(stderr, "[line %d] in \n", line);
+    if (frame->function->name == NULL) {
+      fprintf(stderr, "script\n");
+    } else {
+      fprintf(stderr, "%s()\n", frame->function->name->chars);
+    }
+  }
   resetStack();
 }
 
+static void defineNative(const char* name, NativeFn fn) {
+  push(object_value((Obj*)copyString(name, (int)strlen(name))));
+  push(object_value((Obj*)newNative(fn)));
+  tableSet(&vm.globals, (ObjString*)((vm.stack[0]).as.obj), vm.stack[1]);
+  pop();
+  pop();
+}
+
 void initVM() {
-  vm.chunk = NULL;
-  vm.instruction_ptr = NULL;
   initTable(&vm.strings);
   initTable(&vm.globals);
   resetStack();
+  defineNative("clock", clockNative);
 }
 
 void freeVM() {
@@ -86,13 +108,22 @@ void handle_binary_op(uint8_t op) {
                 push(bool_value(aString == bString));
                 break;
               }
+              case OBJ_FUNCTION: {
+                ObjFunction* aF = (ObjFunction*)a.as.obj;
+                ObjFunction* bF = (ObjFunction*)b.as.obj;
+                push(bool_value(aF == bF));
+                break;
+              }
+              case OBJ_NATIVE: break;
             }
         }
       }
       break;
     }
-    case OP_GREATER: push(bool_value(a.as.number > b.as.number)); break;
-    case OP_LESS: push(bool_value(a.as.number < b.as.number)); break;
+    case OP_GREATER:
+      push(bool_value(a.as.number > b.as.number)); break;
+    case OP_LESS:
+      push(bool_value(a.as.number < b.as.number)); break;
     default: printf("UNKNOWN BINARY OP %d\n", op); exit(1);
   }
 }
@@ -120,12 +151,53 @@ static bool isFalsey(Value v) {
 }
 
 uint16_t read_short() {
-  vm.instruction_ptr += 2;
-  return (uint16_t)(vm.instruction_ptr[-2] << 8 | vm.instruction_ptr[-1]);
+  CallFrame* frame = &vm.frames[vm.frameCount - 1];
+  frame->instruction_ptr += 2;
+  return (uint16_t)(frame->instruction_ptr[-2] << 8
+                    | frame->instruction_ptr[-1]);
+}
+
+static bool call(ObjFunction* function, uint8_t argCount) {
+  if (function->arity != argCount) {
+    runtimeError("Expected %d arguments but got %d.",
+      function->arity, argCount);
+    return false;
+  }
+  if (vm.frameCount == FRAMES_MAX) {
+    runtimeError("Stack overflow.");
+    return false;
+  }
+  CallFrame* frame = &vm.frames[vm.frameCount++];
+  frame->function = function;
+  frame->instruction_ptr = function->chunk.code;
+  frame->slots = vm.stack_top - argCount - 1;
+  return true;
+}
+
+static bool callValue(Value callee, uint8_t argCount) {
+  if (callee.type == VALUE_OBJECT) {
+    switch (callee.as.obj->type) {
+      case OBJ_FUNCTION:
+        return call((ObjFunction*)callee.as.obj, argCount);
+        break;
+      case OBJ_NATIVE: {
+        NativeFn fn = ((ObjNative*)callee.as.obj)->function;
+        Value result = fn(argCount, vm.stack_top - argCount);
+        vm.stack_top -= argCount + 1;
+        push(result);
+        return true;
+        break;
+      }
+      default: break;
+    }
+  }
+  runtimeError("Can only call functions and classes.");
+  return false;
 }
 
 InterpretResult run() {
   while (true) {
+    CallFrame* frame = &vm.frames[vm.frameCount - 1];
 #ifdef DEBUG_TRACE_EXECUTION
   printf("DEBUG STACK INFO:\n");
   if (vm.stack_top - vm.stack > 256) {
@@ -138,34 +210,42 @@ InterpretResult run() {
     printf(" ]");
   }
   printf("\n");
-  disassembleInstruction(vm.chunk,
-    (int)(vm.instruction_ptr - vm.chunk->code));
+  disassembleInstruction(&frame->function->chunk,
+    (int)(frame->instruction_ptr - frame->function->chunk.code));
 #endif
     uint8_t instruction;
-    switch (instruction = *(vm.instruction_ptr++)) {
+    switch (instruction = *(frame->instruction_ptr++)) {
+      case OP_CALL: {
+        uint8_t argCount = *(frame->instruction_ptr++);
+        if (!callValue(peek(argCount), argCount)) {
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        frame = &vm.frames[vm.frameCount - 1];
+        break;
+      }
       case OP_LOOP: {
         uint16_t offset = read_short();
-        vm.instruction_ptr -= offset;
+        frame->instruction_ptr -= offset;
         break;
       }
       case OP_JUMP: {
         uint16_t offset = read_short();
-        vm.instruction_ptr += offset;
+        frame->instruction_ptr += offset;
         break;
       }
       case OP_JUMP_IF_FALSE: {
         uint16_t offset = read_short();
-        if (isFalsey(peek(0))) vm.instruction_ptr += offset;
+        if (isFalsey(peek(0))) frame->instruction_ptr += offset;
         break;
       }
       case OP_SET_LOCAL: {
-        uint8_t slot = *(vm.instruction_ptr++);
-        vm.stack[slot] = peek(0);
+        uint8_t slot = *(frame->instruction_ptr++);
+        frame->slots[slot] = peek(0);
         break;
       }
       case OP_SET_GLOBAL: {
         ObjString* name =
-          (ObjString*)vm.chunk->constants.values[*(vm.instruction_ptr++)].as.obj;
+          (ObjString*)frame->function->chunk.constants.values[*(frame->instruction_ptr++)].as.obj;
         if (tableSet(&vm.globals, name, peek(0))) {
           tableDelete(&vm.globals, name);
           runtimeError("Undefined global var '%s'", name->chars);
@@ -174,13 +254,13 @@ InterpretResult run() {
         break;
       }
       case OP_GET_LOCAL: {
-        uint8_t slot = *(vm.instruction_ptr++);
-        push(vm.stack[slot]);
+        uint8_t slot = *(frame->instruction_ptr++);
+        push(frame->slots[slot]);
         break;
       }
       case OP_GET_GLOBAL: {
         ObjString* name =
-          (ObjString*)vm.chunk->constants.values[*(vm.instruction_ptr++)].as.obj;
+          (ObjString*)frame->function->chunk.constants.values[*(frame->instruction_ptr++)].as.obj;
         Value value;
         if (!tableGet(&vm.globals, name, &value)) {
           runtimeError("Undefined global var '%s'", name->chars);
@@ -191,7 +271,7 @@ InterpretResult run() {
       }
       case OP_DEFINE_GLOBAL: {
         ObjString* name =
-          (ObjString*)vm.chunk->constants.values[*(vm.instruction_ptr++)].as.obj;
+          (ObjString*)frame->function->chunk.constants.values[*(frame->instruction_ptr++)].as.obj;
         tableSet(&vm.globals, name,
                 // peek not pop because tableSet can resize
                 // vm might need to find value still so it needs to live
@@ -207,11 +287,18 @@ InterpretResult run() {
         printValue(pop());
         printf("\n");
         break;
-      case OP_RETURN:
-        return INTERPRET_SUCCESS;
+      case OP_RETURN: {
+        Value result = pop();
+        push(result);
+        vm.frameCount--;
+        if (vm.frameCount == 0) { pop(); return INTERPRET_SUCCESS; }
+        vm.stack_top = frame->slots;
+        frame = &vm.frames[vm.frameCount - 1];
+        break;
+      }
       case OP_CONSTANT: {
         Value constant =
-          vm.chunk->constants.values[*(vm.instruction_ptr++)];
+          frame->function->chunk.constants.values[*(frame->instruction_ptr++)];
         push(constant);
         break;
       }
@@ -231,15 +318,17 @@ InterpretResult run() {
         break;
       }
       case OP_ADD:
-        if (isObjType(peek(0), OBJ_STRING) &&
+        if (peek(0).type == VALUE_OBJECT &&
+            peek(1).type == VALUE_OBJECT &&
+            isObjType(peek(0), OBJ_STRING) &&
             isObjType(peek(1), OBJ_STRING)) {
           concatenate();
           break;
         } else if (
-                  (isObjType(peek(0), OBJ_STRING) &&
-                  !isObjType(peek(1), OBJ_STRING)) ||
-                  (isObjType(peek(1), OBJ_STRING) &&
-                  !isObjType(peek(0), OBJ_STRING))) {
+                  (peek(0).type != peek(1).type) ||
+                  (peek(0).type == VALUE_OBJECT &&
+                   peek(1).type == VALUE_OBJECT &&
+                   peek(0).as.obj->type != peek(1).as.obj->type)) {
           runtimeError("Operands must both be strings or both be numbers.");
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -265,17 +354,13 @@ InterpretResult run() {
 }
 
 InterpretResult interpret(const char* source) {
-  Chunk chunk;
-  initChunk(&chunk);
-
-  if (!compile(source, &chunk)) {
-    freeChunk(&chunk);
+  ObjFunction* function = compile(source);
+  if (function == NULL) {
     return INTERPRET_COMPILE_ERROR;
   }
-  vm.chunk = &chunk;
-  vm.instruction_ptr = chunk.code;
+  push(object_value((Obj*)function));
+  call(function, 0);
 
   InterpretResult result = run();
-  freeChunk(&chunk);
   return result;
 }
