@@ -33,6 +33,17 @@ static void freeObject(Obj* obj) {
       reallocate(n, sizeof(ObjNative*), 0);
       break;
     }
+    case OBJ_CLOSURE: {
+      ObjClosure* c = (ObjClosure*)obj;
+      reallocate(c->upvalues, sizeof(ObjUpvalue*) * c->upvalueCount, 0);
+      reallocate(c, sizeof(ObjClosure), 0);
+      break;
+    }
+    case OBJ_UPVALUE: {
+      ObjUpvalue* upv = (ObjUpvalue*)obj;
+      reallocate(upv, sizeof(ObjUpvalue), 0);
+      break;
+    }
   }
 }
 

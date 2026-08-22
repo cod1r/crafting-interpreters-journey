@@ -66,6 +66,14 @@ void printObject(Value v) {
       printf("<native function>");
       break;
     }
+    case OBJ_CLOSURE: {
+      printFunction(((ObjClosure*)v.as.obj)->function);
+      break;
+    }
+    case OBJ_UPVALUE: {
+      printf("upvalue");
+      break;
+    }
   }
 }
 
@@ -73,6 +81,7 @@ ObjFunction* newFunction() {
   ObjFunction* function = (ObjFunction*)allocateObj(sizeof(ObjFunction), OBJ_FUNCTION);
   function->arity = 0;
   function->name = NULL;
+  function->upvalueCount = 0;
   initChunk(&function->chunk);
   return function;
 }
@@ -81,4 +90,25 @@ ObjNative* newNative(NativeFn function) {
   ObjNative* nativeObj = (ObjNative*)allocateObj(sizeof(ObjNative), OBJ_NATIVE);
   nativeObj->function = function;
   return nativeObj;
+}
+
+ObjClosure* newClosure(ObjFunction* function) {
+  ObjUpvalue** upvalues = reallocate(NULL, 0, sizeof(ObjUpvalue*) *
+    function->upvalueCount);
+  for (int i = 0; i < function->upvalueCount; i++) {
+    upvalues[i] = NULL;
+  }
+  ObjClosure* closure = (ObjClosure*)allocateObj(sizeof(ObjClosure), OBJ_CLOSURE);
+  closure->function = function;
+  closure->upvalues = upvalues;
+  closure->upvalueCount = function->upvalueCount;
+  return closure;
+}
+
+ObjUpvalue* newUpvalue(Value* location) {
+  ObjUpvalue* upvalue = (ObjUpvalue*)allocateObj(sizeof(ObjUpvalue), OBJ_UPVALUE);
+  upvalue->location = location;
+  upvalue->next = NULL;
+  upvalue->closed = nil_value();
+  return upvalue;
 }
