@@ -33,7 +33,7 @@ static void runtimeError(const char* fmt, ...) {
     size_t instruction_idx =
       frame->instruction_ptr - frame->closure->function->chunk.code - 1;
     int line = frame->closure->function->chunk.lines[instruction_idx];
-    fprintf(stderr, "[line %d] in \n", line);
+    fprintf(stderr, "[line %d] in ", line);
     if (frame->closure->function->name == NULL) {
       fprintf(stderr, "script\n");
     } else {
@@ -133,6 +133,18 @@ void handle_binary_op(uint8_t op) {
                 push(bool_value(cl == cl2));
                 break;
               }
+              case OBJ_CLASS: {
+                ObjClass* cl = (ObjClass*)a.as.obj;
+                ObjClass* cl2 = (ObjClass*)b.as.obj;
+                push(bool_value(cl == cl2));
+                break;
+              }
+              case OBJ_INSTANCE: {
+                ObjInstance* cl = (ObjInstance*)a.as.obj;
+                ObjInstance* cl2 = (ObjInstance*)b.as.obj;
+                push(bool_value(cl == cl2));
+                break;
+              }
               case OBJ_UPVALUE: break;
             }
         }
@@ -198,16 +210,20 @@ static bool call(ObjClosure* closure, uint8_t argCount) {
 static bool callValue(Value callee, uint8_t argCount) {
   if (callee.type == VALUE_OBJECT) {
     switch (callee.as.obj->type) {
+      case OBJ_CLASS: {
+        ObjClass* class_ = (ObjClass*)callee.as.obj;
+        vm.stack_top[-argCount - 1] =
+          object_value((Obj*)newInstance(class_));
+        return true;
+      }
       case OBJ_CLOSURE:
         return call((ObjClosure*)callee.as.obj, argCount);
-        break;
       case OBJ_NATIVE: {
         NativeFn fn = ((ObjNative*)callee.as.obj)->function;
         Value result = fn(argCount, vm.stack_top - argCount);
         vm.stack_top -= argCount + 1;
         push(result);
         return true;
-        break;
       }
       default: break;
     }
@@ -263,6 +279,45 @@ InterpretResult run() {
 #endif
     uint8_t instruction;
     switch (instruction = *(frame->instruction_ptr++)) {
+      case OP_SET_PROPERTY: {
+        if (peek(1).type != VALUE_OBJECT ||
+            peek(1).as.obj->type != OBJ_INSTANCE) {
+          runtimeError("Only instances have properties.");
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        ObjInstance* instance = (ObjInstance*)peek(1).as.obj;
+        ObjString* name =
+          (ObjString*)frame->closure->function->chunk.constants.values[*(frame->instruction_ptr++)].as.obj;
+        tableSet(&instance->fields, name, peek(0));
+        Value v = pop();
+        pop();
+        push(v);
+        break;
+      }
+      case OP_GET_PROPERTY: {
+        if (peek(0).type != VALUE_OBJECT ||
+            peek(0).as.obj->type != OBJ_INSTANCE) {
+          runtimeError("Only instances have properties.");
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        ObjInstance* instance = (ObjInstance*)peek(0).as.obj;
+        ObjString* name =
+          (ObjString*)frame->closure->function->chunk.constants.values[*(frame->instruction_ptr++)].as.obj;
+        Value v;
+        if (tableGet(&instance->fields, name, &v)) {
+          pop();
+          push(v);
+          break;
+        }
+        runtimeError("Undefined property '%s'", name->chars);
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      case OP_CLASS: {
+        ObjString* name =
+          (ObjString*)frame->closure->function->chunk.constants.values[*(frame->instruction_ptr++)].as.obj;
+        push(object_value((Obj*)newClass(name)));
+        break;
+      }
       case OP_CLOSE_UPVALUE: {
         closeUpvalues(vm.stack_top - 1);
         pop();

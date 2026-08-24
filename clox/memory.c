@@ -64,6 +64,17 @@ static void freeObject(Obj* obj) {
       reallocate(upv, sizeof(ObjUpvalue), 0);
       break;
     }
+    case OBJ_CLASS: { 
+      ObjClass* class_ = (ObjClass*)obj;
+      reallocate(class_, sizeof(ObjClass), 0);
+      break;
+    }
+    case OBJ_INSTANCE: {
+      ObjInstance* instance = (ObjInstance*)obj;
+      freeTable(&instance->fields);
+      reallocate(instance, sizeof(ObjInstance), 0);
+      break;
+    }
   }
 }
 
@@ -128,6 +139,17 @@ static void blackenObject(Obj* obj) {
   printf("\n");
 #endif
   switch (obj->type) {
+    case OBJ_INSTANCE: {
+      ObjInstance* instance = (ObjInstance*)obj;
+      markObject((Obj*)instance->class_);
+      markTable(&instance->fields);
+      break;
+    }
+    case OBJ_CLASS: {
+      ObjClass* class_ = (ObjClass*)obj;
+      markObject((Obj*)class_->name);
+      break;
+    }
     case OBJ_CLOSURE: {
       ObjClosure* closure = (ObjClosure*)obj;
       markObject((Obj*)closure->function);

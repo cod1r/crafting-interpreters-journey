@@ -80,6 +80,14 @@ void printObject(Value v) {
       printf("upvalue");
       break;
     }
+    case OBJ_CLASS: {
+      printf("%s", ((ObjClass*)v.as.obj)->name->chars);
+      break;
+    }
+    case OBJ_INSTANCE: {
+      printf("%s instance", ((ObjInstance*)v.as.obj)->class_->name->chars);
+      break;
+    }
   }
 }
 
@@ -117,4 +125,17 @@ ObjUpvalue* newUpvalue(Value* location) {
   upvalue->next = NULL;
   upvalue->closed = nil_value();
   return upvalue;
+}
+
+ObjClass* newClass(ObjString* name) {
+  ObjClass* class_ = (ObjClass*)allocateObj(sizeof(ObjClass), OBJ_CLASS);
+  class_->name = name;
+  return class_;
+}
+
+ObjInstance* newInstance(ObjClass* class_) {
+  ObjInstance* instance = (ObjInstance*)allocateObj(sizeof(ObjInstance), OBJ_INSTANCE);
+  instance->class_ = class_;
+  initTable(&instance->fields);
+  return instance;
 }
