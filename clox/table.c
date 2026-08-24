@@ -114,3 +114,11 @@ ObjString* tableFindString(Table* strings, const char* chars, int length,
     index = (index + 1) % strings->capacity;
   }
 }
+
+void markTable(Table* tbl) {
+  for (int i = 0; i < tbl->capacity; ++i) {
+    Entry* entry = &tbl->entries[i];
+    markObject((Obj*)entry->key);
+    markValue(entry->value);
+  }
+}

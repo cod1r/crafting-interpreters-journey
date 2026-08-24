@@ -22,5 +22,6 @@ bool tableDelete(Table* table, ObjString* key);
 void tableCopyTo(Table* from, Table* to);
 ObjString* tableFindString(Table* strings, const char* chars, int length,
                            uint32_t hash);
+void markTable(Table* tbl);
 
 #endif

@@ -52,6 +52,12 @@ static void defineNative(const char* name, NativeFn fn) {
 }
 
 void initVM() {
+  vm.grayCount = 0;
+  vm.grayCapacity = 0;
+  vm.grayStack = NULL;
+  vm.bytesAllocated = 0;
+  vm.nextGC = 1024 * 1024;
+
   initTable(&vm.strings);
   initTable(&vm.globals);
   resetStack();
@@ -142,8 +148,8 @@ void handle_binary_op(uint8_t op) {
 }
 
 static void concatenate() {
-  ObjString* b = (ObjString*)pop().as.obj;
-  ObjString* a = (ObjString*)pop().as.obj;
+  ObjString* b = (ObjString*)peek(0).as.obj;
+  ObjString* a = (ObjString*)peek(1).as.obj;
   int newLength = a->length + b->length;
   char* newCString = reallocate(NULL, 0, sizeof(char) * newLength + 1);
   memcpy(newCString, a->chars, a->length);
@@ -155,6 +161,8 @@ static void concatenate() {
                                         hash);
   if (interned != NULL) { push(object_value((Obj*)interned)); return; }
 
+  pop();
+  pop();
   push(object_value((Obj*)allocateString(newCString, newLength, hash)));
 }
 
