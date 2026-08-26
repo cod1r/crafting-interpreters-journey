@@ -29,6 +29,7 @@ typedef struct {
   int grayCount;
   int grayCapacity;
   Obj** grayStack;
+  ObjString* initString;
 
   size_t bytesAllocated;
   size_t nextGC;

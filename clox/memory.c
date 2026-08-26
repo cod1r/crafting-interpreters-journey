@@ -64,8 +64,9 @@ static void freeObject(Obj* obj) {
       reallocate(upv, sizeof(ObjUpvalue), 0);
       break;
     }
-    case OBJ_CLASS: { 
+    case OBJ_CLASS: {
       ObjClass* class_ = (ObjClass*)obj;
+      freeTable(&class_->methods);
       reallocate(class_, sizeof(ObjClass), 0);
       break;
     }
@@ -73,6 +74,11 @@ static void freeObject(Obj* obj) {
       ObjInstance* instance = (ObjInstance*)obj;
       freeTable(&instance->fields);
       reallocate(instance, sizeof(ObjInstance), 0);
+      break;
+    }
+    case OBJ_BOUND_METHOD: {
+      ObjBoundMethod* bound = (ObjBoundMethod*)obj;
+      reallocate(bound, sizeof(ObjBoundMethod), 0);
       break;
     }
   }
@@ -124,6 +130,7 @@ static void markRoots() {
   }
   markCompilerRoots();
   markTable(&vm.globals);
+  markObject((Obj*)vm.initString);
 }
 
 static void markArray(ValueArray* array) {
@@ -139,6 +146,12 @@ static void blackenObject(Obj* obj) {
   printf("\n");
 #endif
   switch (obj->type) {
+    case OBJ_BOUND_METHOD: {
+      ObjBoundMethod* bound = (ObjBoundMethod*)obj;
+      markValue(bound->receiver);
+      markObject((Obj*)bound->method);
+      break;
+    }
     case OBJ_INSTANCE: {
       ObjInstance* instance = (ObjInstance*)obj;
       markObject((Obj*)instance->class_);
@@ -148,6 +161,7 @@ static void blackenObject(Obj* obj) {
     case OBJ_CLASS: {
       ObjClass* class_ = (ObjClass*)obj;
       markObject((Obj*)class_->name);
+      markTable(&class_->methods);
       break;
     }
     case OBJ_CLOSURE: {
@@ -218,6 +232,7 @@ void collectGarbage() {
 #endif
   markRoots();
   traceReferences();
+  tableRemoveWhite(&vm.strings);
   sweep();
 
   vm.nextGC = vm.bytesAllocated * GC_HEAP_GROW_FACTOR;

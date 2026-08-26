@@ -88,6 +88,10 @@ void printObject(Value v) {
       printf("%s instance", ((ObjInstance*)v.as.obj)->class_->name->chars);
       break;
     }
+    case OBJ_BOUND_METHOD: {
+      printFunction(((ObjBoundMethod*)v.as.obj)->method->function);
+      break;
+    }
   }
 }
 
@@ -130,6 +134,7 @@ ObjUpvalue* newUpvalue(Value* location) {
 ObjClass* newClass(ObjString* name) {
   ObjClass* class_ = (ObjClass*)allocateObj(sizeof(ObjClass), OBJ_CLASS);
   class_->name = name;
+  initTable(&class_->methods);
   return class_;
 }
 
@@ -138,4 +143,15 @@ ObjInstance* newInstance(ObjClass* class_) {
   instance->class_ = class_;
   initTable(&instance->fields);
   return instance;
+}
+
+ObjBoundMethod* newBoundMethod(Value receiver,
+                                ObjClosure* method) {
+  ObjBoundMethod* bound = (ObjBoundMethod*)allocateObj(
+    sizeof(ObjBoundMethod),
+    OBJ_BOUND_METHOD
+  );
+  bound->receiver = receiver;
+  bound->method = method;
+  return bound;
 }

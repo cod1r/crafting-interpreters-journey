@@ -61,12 +61,15 @@ void initVM() {
   initTable(&vm.strings);
   initTable(&vm.globals);
   resetStack();
+  vm.initString = NULL;
+  vm.initString = copyString("init", 4);
   defineNative("clock", clockNative);
 }
 
 void freeVM() {
   freeTable(&vm.strings);
   freeTable(&vm.globals);
+  vm.initString = NULL;
   freeObjects();
 }
 
@@ -145,6 +148,12 @@ void handle_binary_op(uint8_t op) {
                 push(bool_value(cl == cl2));
                 break;
               }
+              case OBJ_BOUND_METHOD: {
+                ObjBoundMethod* bm = (ObjBoundMethod*)a.as.obj;
+                ObjBoundMethod* bm2 = (ObjBoundMethod*)b.as.obj;
+                push(bool_value(bm == bm2));
+                break;
+              }
               case OBJ_UPVALUE: break;
             }
         }
@@ -210,10 +219,23 @@ static bool call(ObjClosure* closure, uint8_t argCount) {
 static bool callValue(Value callee, uint8_t argCount) {
   if (callee.type == VALUE_OBJECT) {
     switch (callee.as.obj->type) {
+      case OBJ_BOUND_METHOD: {
+        ObjBoundMethod* bound = (ObjBoundMethod*)callee.as.obj;
+        vm.stack_top[-argCount - 1] = bound->receiver;
+        return call(bound->method, argCount);
+      }
       case OBJ_CLASS: {
         ObjClass* class_ = (ObjClass*)callee.as.obj;
         vm.stack_top[-argCount - 1] =
           object_value((Obj*)newInstance(class_));
+        Value init;
+        if (tableGet(&class_->methods, vm.initString,
+            &init)) {
+          return call((ObjClosure*)init.as.obj, argCount);
+        } else if (argCount != 0) {
+          runtimeError("Expected 0 args, got %d.", argCount);
+          return false;
+        }
         return true;
       }
       case OBJ_CLOSURE:
@@ -259,6 +281,31 @@ static ObjUpvalue* captureUpvalue(Value* value) {
   return upvalue;
 }
 
+ObjString* read_string() {
+  CallFrame* frame = &vm.frames[vm.frameCount - 1];
+  return (ObjString*)frame->closure->function->chunk.constants.values[*(frame->instruction_ptr++)].as.obj;
+}
+
+static void defineMethod(ObjString* name) {
+  Value method = peek(0);
+  ObjClass* class_ = (ObjClass*)peek(1).as.obj;
+  tableSet(&class_->methods, name, method);
+  pop();
+}
+
+static bool bindMethod(ObjClass* class_, ObjString* name) {
+  Value method;
+  if (!tableGet(&class_->methods, name, &method)) {
+    return false;
+  }
+
+  ObjBoundMethod* bound = newBoundMethod(peek(0),
+                            (ObjClosure*)method.as.obj);
+  pop();
+  push(object_value((Obj*)bound));
+  return true;
+}
+
 InterpretResult run() {
   while (true) {
     CallFrame* frame = &vm.frames[vm.frameCount - 1];
@@ -279,6 +326,10 @@ InterpretResult run() {
 #endif
     uint8_t instruction;
     switch (instruction = *(frame->instruction_ptr++)) {
+      case OP_METHOD: {
+        defineMethod(read_string());
+        break;
+      }
       case OP_SET_PROPERTY: {
         if (peek(1).type != VALUE_OBJECT ||
             peek(1).as.obj->type != OBJ_INSTANCE) {
@@ -286,8 +337,7 @@ InterpretResult run() {
           return INTERPRET_RUNTIME_ERROR;
         }
         ObjInstance* instance = (ObjInstance*)peek(1).as.obj;
-        ObjString* name =
-          (ObjString*)frame->closure->function->chunk.constants.values[*(frame->instruction_ptr++)].as.obj;
+        ObjString* name = read_string();
         tableSet(&instance->fields, name, peek(0));
         Value v = pop();
         pop();
@@ -301,20 +351,21 @@ InterpretResult run() {
           return INTERPRET_RUNTIME_ERROR;
         }
         ObjInstance* instance = (ObjInstance*)peek(0).as.obj;
-        ObjString* name =
-          (ObjString*)frame->closure->function->chunk.constants.values[*(frame->instruction_ptr++)].as.obj;
+        ObjString* name = read_string();
         Value v;
         if (tableGet(&instance->fields, name, &v)) {
           pop();
           push(v);
           break;
         }
-        runtimeError("Undefined property '%s'", name->chars);
-        return INTERPRET_RUNTIME_ERROR;
+        if (!bindMethod(instance->class_, name)) {
+          runtimeError("Undefined property '%s'", name->chars);
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        break;
       }
       case OP_CLASS: {
-        ObjString* name =
-          (ObjString*)frame->closure->function->chunk.constants.values[*(frame->instruction_ptr++)].as.obj;
+        ObjString* name = read_string();
         push(object_value((Obj*)newClass(name)));
         break;
       }
@@ -424,10 +475,10 @@ InterpretResult run() {
         break;
       case OP_RETURN: {
         Value result = pop();
-        push(result);
         vm.frameCount--;
         if (vm.frameCount == 0) { pop(); return INTERPRET_SUCCESS; }
         vm.stack_top = frame->slots;
+        push(result);
         frame = &vm.frames[vm.frameCount - 1];
         break;
       }

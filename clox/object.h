@@ -12,7 +12,8 @@ typedef enum {
   OBJ_CLOSURE,
   OBJ_UPVALUE,
   OBJ_CLASS,
-  OBJ_INSTANCE
+  OBJ_INSTANCE,
+  OBJ_BOUND_METHOD
 } ObjType;
 
 struct Obj {
@@ -53,6 +54,7 @@ typedef struct {
 typedef struct {
   Obj obj;
   ObjString* name;
+  Table methods;
 } ObjClass;
 
 typedef Value (*NativeFn)(int argCount, Value* args);
@@ -68,6 +70,12 @@ typedef struct {
   Table fields;
 } ObjInstance;
 
+typedef struct {
+  Obj obj;
+  Value receiver;
+  ObjClosure* method;
+} ObjBoundMethod;
+
 static inline bool isObjType(Value val, ObjType type) {
   return val.type == VALUE_OBJECT && val.as.obj->type == type;
 }
@@ -81,6 +89,8 @@ ObjClosure* newClosure(ObjFunction* function);
 ObjUpvalue* newUpvalue(Value* location);
 ObjClass* newClass(ObjString* name);
 ObjInstance* newInstance(ObjClass* class_);
+ObjBoundMethod* newBoundMethod(Value receiver,
+                              ObjClosure* method);
 
 void printObject(Value v);
 
