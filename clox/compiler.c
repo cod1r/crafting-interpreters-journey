@@ -474,6 +474,10 @@ static void dot(bool canAssign) {
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
     emitOpCodeOperand(OP_SET_PROPERTY, name);
+  } else if (match(TOKEN_LEFT_PAREN)) {
+    uint8_t argCount = argumentList();
+    emitOpCodeOperand(OP_INVOKE, name);
+    emitByte(argCount);
   } else {
     emitOpCodeOperand(OP_GET_PROPERTY, name);
   }

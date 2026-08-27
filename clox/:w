@@ -306,32 +306,6 @@ static bool bindMethod(ObjClass* class_, ObjString* name) {
   return true;
 }
 
-static bool invokeFromClass(ObjClass* class_, ObjString* name,
-                            int argCount) {
-  Value method;
-  if (!tableGet(&class_->methods, name, &method)) {
-    runtimeError("Undefined property '%s'.", name->chars);
-    return false;
-  }
-  return call((ObjClosure*)method.as.obj, argCount);
-}
-
-static bool invoke(ObjString* method, int argCount) {
-  Value receiver = peek(argCount);
-  if (receiver.type != VALUE_OBJECT ||
-      receiver.as.obj->type != OBJ_INSTANCE) {
-    runtimeError("Only instances have methods.");
-    return false;
-  }
-  ObjInstance* instance = (ObjInstance*)receiver.as.obj;
-  Value value;
-  if (tableGet(&instance->fields, method, &value)) {
-    vm.stack_top[-argCount - 1] = value;
-    return callValue(value, argCount);
-  }
-  return invokeFromClass(instance->class_, method, argCount);
-}
-
 InterpretResult run() {
   while (true) {
     CallFrame* frame = &vm.frames[vm.frameCount - 1];
@@ -353,11 +327,8 @@ InterpretResult run() {
     uint8_t instruction;
     switch (instruction = *(frame->instruction_ptr++)) {
       case OP_INVOKE: {
-        ObjString* method = read_string();
+        ObjString* name = read_string();
         int argCount = *(frame->instruction_ptr++);
-        if (!invoke(method, argCount)) {
-        }
-        frame = &vm.frames[vm.frameCount - 1];
         break;
       }
       case OP_METHOD: {
