@@ -9,6 +9,7 @@
 #include "vm.h"
 #include "memory.h"
 #include "object.h"
+#include "table.h"
 
 VM vm;
 
@@ -352,10 +353,43 @@ InterpretResult run() {
 #endif
     uint8_t instruction;
     switch (instruction = *(frame->instruction_ptr++)) {
+      case OP_SUPER_INVOKE: {
+        ObjString* method = read_string();
+        int argCount = *(frame->instruction_ptr++);
+        ObjClass* super = (ObjClass*)pop().as.obj;
+        if(!invokeFromClass(super, method, argCount)) {
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        frame = &vm.frames[vm.frameCount - 1];
+        break;
+      }
+      case OP_GET_SUPER: {
+        ObjString* name = read_string();
+        ObjClass* super = (ObjClass*)pop().as.obj;
+        if (!bindMethod(super, name)) {
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        break;
+      }
+      case OP_INHERIT: {
+        Value superclass = peek(1);
+        if (superclass.type != VALUE_OBJECT ||
+            superclass.as.obj->type != OBJ_CLASS) {
+          runtimeError("Superclass must be a class.");
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        ObjClass* subclass = (ObjClass*)peek(0).as.obj;
+        tableCopyTo(
+          &((ObjClass*)(superclass.as.obj))->methods,
+          &subclass->methods);
+        pop();
+        break;
+      }
       case OP_INVOKE: {
         ObjString* method = read_string();
         int argCount = *(frame->instruction_ptr++);
         if (!invoke(method, argCount)) {
+          return INTERPRET_RUNTIME_ERROR;
         }
         frame = &vm.frames[vm.frameCount - 1];
         break;

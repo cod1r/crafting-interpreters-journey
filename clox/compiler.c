@@ -69,6 +69,7 @@ typedef struct {
 
 typedef struct ClassCompiler {
   struct ClassCompiler* enclosing;
+  bool hasSuperclass;
 } ClassCompiler;
 
 Parser parser;
@@ -491,10 +492,39 @@ static void this_(bool canAssign) {
   variable(false);
 }
 
+static Token syntheticToken(const char* text) {
+  Token token;
+  token.start = text;
+  token.length = (int)strlen(text);
+  return token;
+}
+
+static void super_(bool canAssign) {
+  if (currentClassCompiler == NULL) {
+    error("Can't use 'super' outside of a class.");
+  } else if (!currentClassCompiler->hasSuperclass) {
+    error("Can't use 'super' in a class with no superclass.");
+  }
+  consume(TOKEN_DOT, "Expect '.' after 'super'.");
+  consume(TOKEN_IDENTIFIER, "Expect superclass method name.");
+  uint8_t name = identifierConstant(&parser.prev);
+  namedVariable(syntheticToken("this"), false);
+   if (match(TOKEN_LEFT_PAREN)) {
+    uint8_t argCount = argumentList();
+    namedVariable(syntheticToken("super"), false);
+    emitOpCodeOperand(OP_SUPER_INVOKE, name);
+    emitByte(argCount);
+  } else {
+    namedVariable(syntheticToken("super"), false);
+    emitOpCodeOperand(OP_GET_SUPER, name);
+  }
+  emitOpCodeOperand(OP_GET_SUPER, name);
+}
+
 ParseRule rules[] = {
   [TOKEN_LEFT_PAREN]    = {grouping, call,   PREC_CALL},
   [TOKEN_RIGHT_PAREN]   = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE}, 
+  [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},
   [TOKEN_COMMA]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_DOT]           = {NULL,     dot,   PREC_CALL},
@@ -639,6 +669,20 @@ static void method() {
   emitOpCodeOperand(OP_METHOD, constant);
 }
 
+static void endScope() {
+  currentCompiler->scopeDepth--;
+  while (currentCompiler->localCount > 0 &&
+        currentCompiler->locals[currentCompiler->localCount - 1].depth >
+        currentCompiler->scopeDepth) {
+    if (currentCompiler->locals[currentCompiler->localCount - 1].isCaptured) {
+      emitByte(OP_CLOSE_UPVALUE);
+    } else {
+      emitByte(OP_POP);
+    }
+    currentCompiler->localCount--;
+  }
+}
+
 static void classDeclaration() {
   consume(TOKEN_IDENTIFIER, "Expect class name.");
   Token className = parser.prev;
@@ -649,8 +693,25 @@ static void classDeclaration() {
   defineVariable(nameConstant);
 
   ClassCompiler classCompiler;
+  classCompiler.hasSuperclass = false;
   classCompiler.enclosing = currentClassCompiler;
   currentClassCompiler = &classCompiler;
+
+  if (match(TOKEN_LESS)) {
+    consume(TOKEN_IDENTIFIER, "Expected superclass name.");
+    variable(false);
+    if (identifiersEqual(&className, &parser.prev)) {
+      error("A class can't inherit from itself.");
+    }
+    namedVariable(className, false);
+
+    beginScope();
+    addLocal(syntheticToken("super"));
+    defineVariable(0);
+
+    emitByte(OP_INHERIT);
+    classCompiler.hasSuperclass = true;
+  }
 
   namedVariable(className, false);
   consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
@@ -660,6 +721,10 @@ static void classDeclaration() {
   }
   consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
   emitByte(OP_POP);
+
+  if (classCompiler.hasSuperclass) {
+    endScope();
+  }
 
   currentClassCompiler = currentClassCompiler->enclosing;
 }
@@ -676,20 +741,6 @@ static void declaration() {
   }
 
   if (parser.panicMode) synchronize();
-}
-
-static void endScope() {
-  currentCompiler->scopeDepth--;
-  while (currentCompiler->localCount > 0 &&
-        currentCompiler->locals[currentCompiler->localCount - 1].depth >
-        currentCompiler->scopeDepth) {
-    if (currentCompiler->locals[currentCompiler->localCount - 1].isCaptured) {
-      emitByte(OP_CLOSE_UPVALUE);
-    } else {
-      emitByte(OP_POP);
-    }
-    currentCompiler->localCount--;
-  }
 }
 
 static void statement();
